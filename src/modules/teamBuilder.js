@@ -12,7 +12,7 @@ function run(teamRosterConfigObject, gameConfig)
 {
     if (!checkForValidConfigurations(teamRosterConfigObject, gameConfig))
     {
-        return;
+        return "An invalid amount of team players/AIs were entered. Ensure the amount of team players + AI is equal to the amount of team member spots";
     }
 
     let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
@@ -88,7 +88,7 @@ function checkForValidConfigurations(teamRosterConfigObject, gameConfig)
     // Make sure total amount of player in configData + total selected AI Amount = total amount of players for teams
     let requiredPlayerCount = teamRosterConfigObject.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
-    let amountOfAvailableAIs = processConfig["ai-count"];
+    let amountOfAvailableAIs = gameConfig["aiCount"];
     let amountOfAvailablePlayers = Object.keys(availablePlayerMemberData).length;
 
     let result = true;

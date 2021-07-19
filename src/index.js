@@ -34,7 +34,19 @@ botClient.on('message', (message) =>
             let embed = new MessageEmbed();
             embed.setTitle("Generated Teams");
             embed.setColor('#DAF7A6');
-            embed.addFields(teamBuilder.run(teamRosterConfig, gameConfig));
+
+            let resultArray = teamBuilder.run(teamRosterConfig, gameConfig);
+            if (typeof resultArray === String)
+            {
+                embed.addFields({
+                    name: "Error",
+                    value: resultArray
+                })
+            }
+            else
+            {
+                embed.addFields(resultArray);
+            }
 
             message.channel.send(embed);
         }
