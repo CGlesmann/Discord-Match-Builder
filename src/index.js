@@ -36,12 +36,13 @@ botClient.on('message', (message) =>
             embed.setColor('#DAF7A6');
 
             let resultArray = teamBuilder.run(teamRosterConfig, gameConfig);
-            if (typeof resultArray === String)
+            console.log("typeof " + typeof resultArray);
+            if (typeof resultArray === "string")
             {
-                embed.addFields({
+                embed.addFields([{
                     name: "Error",
                     value: resultArray
-                })
+                }]);
             }
             else
             {
