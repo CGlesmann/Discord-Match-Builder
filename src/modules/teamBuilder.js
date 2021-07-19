@@ -1,5 +1,6 @@
 const availablePlayerMemberData = require("../config/teamMemberConfig.json")?.availableTeamMembers;
 const availableAIData = require("../config/aiConfig.json")?.availableTeamMembers;
+const processConfig = require("../config/processConfig.json");
 
 const AVAILABLE_RACES = {
     TERRAN: "Terran",
@@ -39,7 +40,7 @@ function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
 
 function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig)
 {
-    if (finalTeamRosters.getBalanceThreshold() <= gameConfig["acceptanceThreshold"])
+    if (finalTeamRosters.getBalanceThreshold() <= processConfig.differenceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
         return;
@@ -51,6 +52,7 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfi
         let strongestTeamIndex = finalTeamRosters.getStrongestTeamIndex(false);
         membersThatCanBeBalanced = getMembersThatCanBeBalanced(finalTeamRosters, strongestTeamIndex);
 
+        console.log(`Available Team Members: ${membersThatCanBeBalanced.length}`);
         if (membersThatCanBeBalanced.length === 0)
         {
             console.log("Could not balance teams");
@@ -60,7 +62,7 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfi
         targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
         targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
         targetPlayer.selectedRace = targetPlayer.getNextLowestRace();
-    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > gameConfig["acceptanceThreshold"]);
+    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > processConfig.differenceThreshold);
 }
 
 function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
@@ -86,7 +88,7 @@ function checkForValidConfigurations(teamRosterConfigObject, gameConfig)
     // Make sure total amount of player in configData + total selected AI Amount = total amount of players for teams
     let requiredPlayerCount = teamRosterConfigObject.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
-    let amountOfAvailableAIs = gameConfig["ai-count"];
+    let amountOfAvailableAIs = processConfig["ai-count"];
     let amountOfAvailablePlayers = Object.keys(availablePlayerMemberData).length;
 
     let result = true;
