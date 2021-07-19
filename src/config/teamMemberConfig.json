@@ -1,0 +1,59 @@
+{
+    "availableTeamMembers": [
+        {
+            "name": "Nick",
+            "primaryRace": "zerg",
+            "raceRatings": {
+                "terran": 7,
+                "zerg": 10,
+                "protoss": 7,
+                "random": 6
+            }
+        },
+        {
+            "name": "Lance",
+            "primaryRace": "terran",
+            "raceRatings": {
+                "terran": 7,
+                "zerg": 5,
+                "protoss": 5
+            }
+        },
+        {
+            "name": "Chris",
+            "primaryRace": "protoss",
+            "raceRatings": {
+                "terran": 6,
+                "zerg": 7,
+                "protoss": 8
+            }
+        },
+        {
+            "name": "Charlese",
+            "primaryRace": "zerg",
+            "raceRatings": {
+                "terran": 3,
+                "zerg": 5,
+                "protoss": 2
+            }
+        },
+        {
+            "name": "Kaysia",
+            "primaryRace": "terran",
+            "raceRatings": {
+                "terran": 5,
+                "zerg": 1,
+                "protoss": 2
+            }
+        },
+        {
+            "name": "John",
+            "primaryRace": "protoss",
+            "raceRatings": {
+                "terran": 3,
+                "zerg": 1,
+                "protoss": 5
+            }
+        }
+    ]
+}
