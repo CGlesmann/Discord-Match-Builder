@@ -18,7 +18,7 @@ botClient.on('message', (message) =>
 
         if (receivedCommandName === "generateTeam")
         {
-            let amountOfAI = args[0];
+            let amountOfAI = Number(args[0]);
             let teamRosterConfig = args[1]?.split(",")?.map((value) => { return Number(value); });
 
             if (!amountOfAI || (!teamRosterConfig || teamRosterConfig.length === 0))
