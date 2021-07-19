@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const teamBuilder = require("./modules/teamBuilder.js");
 
-const { Client } = require("discord.js");
+const { Client, MessageEmbed } = require("discord.js");
 const COMMAND_PREFIX = "$";
 
 const botClient = new Client();
@@ -31,7 +31,12 @@ botClient.on('message', (message) =>
                 aiCount: amountOfAI
             };
 
-            message.channel.send(teamBuilder.run(teamRosterConfig, gameConfig));
+            let embed = new MessageEmbed();
+            embed.setTitle("Generated Teams");
+            embed.setColor('#DAF7A6');
+            embed.addFields(teamBuilder.run(teamRosterConfig, gameConfig));
+
+            message.channel.send(embed);
         }
     }
 });

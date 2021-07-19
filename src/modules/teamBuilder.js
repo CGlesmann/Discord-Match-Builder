@@ -21,7 +21,7 @@ function run(teamRosterConfigObject, gameConfig)
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
     executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig);
 
-    return finalTeamRosters.getDisplayString();
+    return finalTeamRosters.getDisplayObjects();
 }
 
 function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
@@ -253,31 +253,22 @@ function constructBaseTeamRosterObject(teamRosterConfig)
         {
             this.finalTeams[teamIndex].teamMembers.push(newTeamMember);
         },
-        getDisplayString: function ()
+        getDisplayObjects: function ()
         {
-            let overallDisplayString = "";
-            let getDisplayHeader = function (headerString)
-            {
-                let newHeaderSubstring = "";
-                newHeaderSubstring += "\n-----------------------------------\n";
-                newHeaderSubstring += `${headerString}\n`;
-                newHeaderSubstring += "-----------------------------------\n";
-
-                return newHeaderSubstring;
-            };
+            let allDisplayObjects = [];
 
             for (let teamArray in this.finalTeams)
             {
-                overallDisplayString += getDisplayHeader(`Team ${Number(teamArray) + 1}`);
+                let newDisplayObject = { name: `Team ${Number(teamArray) + 1}`, value: [] };
                 for (let teamMember of this.finalTeams[teamArray].teamMembers)
                 {
-                    overallDisplayString += `${teamMember.displayPlayer()}\n`;
+                    newDisplayObject.value.push(`${teamMember.displayPlayer()}`)
                 }
 
-                overallDisplayString += "\n";
+                allDisplayObjects.push(newDisplayObject);
             }
 
-            return overallDisplayString;
+            return allDisplayObjects;
         }
     };
 
