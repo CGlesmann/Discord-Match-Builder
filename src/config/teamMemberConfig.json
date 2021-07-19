@@ -6,8 +6,7 @@
             "raceRatings": {
                 "terran": 7,
                 "zerg": 10,
-                "protoss": 7,
-                "random": 6
+                "protoss": 5
             }
         },
         {
@@ -16,7 +15,7 @@
             "raceRatings": {
                 "terran": 7,
                 "zerg": 5,
-                "protoss": 5
+                "protoss": 3
             }
         },
         {
