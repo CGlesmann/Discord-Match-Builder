@@ -2,22 +2,22 @@ const availablePlayerMemberData = require("../config/teamMemberConfig.json")?.av
 const availableAIData = require("../config/aiConfig.json")?.availableTeamMembers;
 const processConfig = require("../config/processConfig.json");
 
-const AVAILABLE_RACES = {
-    TERRAN: "Terran",
-    ZERG: "Zerg",
-    PROTOSS: "Protoss"
-};
-
-function run(teamRosterConfigObject, gameConfig)
+function run(playersToUse, teamRosterConfigObject, gameConfig)
 {
-    if (!checkForValidConfigurations(teamRosterConfigObject, gameConfig))
+    let allAvailableTeamMembers = constructAvailableTeamMemberData(playersToUse, gameConfig["aiCount"]);
+    let configErrorMessage = checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject);
+
+    if (configErrorMessage)
     {
-        return "An invalid amount of team players/AIs were entered. Ensure the amount of team players + AI is equal to the amount of team member spots";
+        return [
+            {
+                name: "Error",
+                value: [configErrorMessage]
+            }
+        ];
     }
 
     let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
-    let allAvailableTeamMembers = constructAvailableTeamMemberData(gameConfig["aiCount"]);
-
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
     executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig);
 
@@ -83,35 +83,41 @@ function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
     return membersThatCanBeBalanced;
 }
 
-function checkForValidConfigurations(teamRosterConfigObject, gameConfig)
+function checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject)
 {
     // Make sure total amount of player in configData + total selected AI Amount = total amount of players for teams
     let requiredPlayerCount = teamRosterConfigObject.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
-    let amountOfAvailableAIs = gameConfig["aiCount"];
-    let amountOfAvailablePlayers = Object.keys(availablePlayerMemberData).length;
-
-    let result = true;
-    if ((amountOfAvailableAIs + amountOfAvailablePlayers) > requiredPlayerCount)
+    let result = '';
+    if (allAvailableTeamMembers.length > requiredPlayerCount)
     {
-        result = false;
+        result = "There aren't enough team member slots to fit every person/AI";
         console.error("There aren't enough team member slots to fit every person/AI");
     }
-    else if ((amountOfAvailableAIs + amountOfAvailablePlayers) < requiredPlayerCount)
+    else if (allAvailableTeamMembers.length < requiredPlayerCount)
     {
-        result = false;
+        result = "There aren't enough players/AIs to fill all the team member slots";
         console.error("There aren't enough players/AIs to fill all the team member slots");
     }
 
     return result;
 }
 
-function constructAvailableTeamMemberData(amountOfAIPlayers)
+function constructAvailableTeamMemberData(playersToUse, amountOfAIPlayers)
 {
-    let allTeamMembers = [...availablePlayerMemberData];
-    for (let player of allTeamMembers)
+    console.log(playersToUse);
+    //let allTeamMembers = [...availablePlayerMemberData];
+    let allTeamMembers = [];
+
+    for (let player of availablePlayerMemberData)
     {
-        addStateTrackingMemberProperties(player);
+        if (playersToUse.includes(player.name))
+        {
+            let newPlayerObject = { ...player };
+            addStateTrackingMemberProperties(newPlayerObject)
+
+            allTeamMembers.push(newPlayerObject);
+        }
     }
 
     for (let i = 0; i < amountOfAIPlayers; i++)
@@ -122,6 +128,7 @@ function constructAvailableTeamMemberData(amountOfAIPlayers)
         allTeamMembers.push(newAIObject);
     }
 
+    console.log(`Found ${allTeamMembers.length} available team members`);
     return allTeamMembers;
 }
 
