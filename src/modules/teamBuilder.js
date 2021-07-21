@@ -1,6 +1,8 @@
 async function run(playersToUse, teamRosterConfigObject, gameConfig)
 {
     const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllPlayerData();
+    console.log(rawServerResponse);
+
     const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
     const baseAIObject = rawServerResponse.AIData;
     const processConfig = rawServerResponse.processConfig;
@@ -30,7 +32,7 @@ async function run(playersToUse, teamRosterConfigObject, gameConfig)
 
     let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
-    executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig);
+    executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig);
 
     return finalTeamRosters.getDisplayObjects();
 }
@@ -51,7 +53,9 @@ function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
 
 function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig)
 {
-    if (finalTeamRosters.getBalanceThreshold() <= processConfig.differenceThreshold)
+    let balanceThreshold = Number(processConfig.differenceThreshold);
+    console.log(`balanceThreshold: ${balanceThreshold}`);
+    if (finalTeamRosters.getBalanceThreshold() <= balanceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
         return;
@@ -73,7 +77,7 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processCo
         targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
         targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
         targetPlayer.selectedRace = targetPlayer.getNextLowestRace();
-    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > processConfig.differenceThreshold);
+    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > balanceThreshold);
 }
 
 function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
