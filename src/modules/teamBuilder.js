@@ -1,11 +1,24 @@
-const availablePlayerMemberData = require("../config/teamMemberConfig.json")?.availableTeamMembers;
-const availableAIData = require("../config/aiConfig.json")?.availableTeamMembers;
-const processConfig = require("../config/processConfig.json");
-
-function run(playersToUse, teamRosterConfigObject, gameConfig)
+async function run(playersToUse, teamRosterConfigObject, gameConfig)
 {
-    let allAvailableTeamMembers = constructAvailableTeamMemberData(playersToUse, gameConfig["aiCount"]);
-    let configErrorMessage = checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject);
+    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllPlayerData();
+    console.log(rawServerResponse);
+
+    const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
+    const baseAIObject = rawServerResponse.AIData;
+    const processConfig = rawServerResponse.processConfig;
+
+    if (!availablePlayerMemberData)
+    {
+        return [
+            {
+                name: "Error",
+                value: "Could not retrieve data from the server"
+            }
+        ];
+    }
+
+    let allAvailableTeamMembers = constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, gameConfig["aiCount"], baseAIObject);
+    let configErrorMessage = checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject, processConfig);
 
     if (configErrorMessage)
     {
@@ -19,7 +32,7 @@ function run(playersToUse, teamRosterConfigObject, gameConfig)
 
     let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
-    executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig);
+    executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig);
 
     return finalTeamRosters.getDisplayObjects();
 }
@@ -31,16 +44,18 @@ function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
         let targetIndex = Math.floor(Math.random() * allAvailableTeamMembers.length);
         let targetPlayer = allAvailableTeamMembers[targetIndex];
 
-        targetPlayer.selectedRace = targetPlayer.primaryRace;
+        targetPlayer.selectedRace = targetPlayer.getPrimaryRaceIndex();
         finalTeamRosters.addTeamMember(targetPlayer, finalTeamRosters.getWeakestTeamIndex(true));
 
         allAvailableTeamMembers.splice(targetIndex, 1);
     }
 }
 
-function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfig)
+function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig)
 {
-    if (finalTeamRosters.getBalanceThreshold() <= processConfig.differenceThreshold)
+    let balanceThreshold = Number(processConfig.differenceThreshold);
+    console.log(`balanceThreshold: ${balanceThreshold}`);
+    if (finalTeamRosters.getBalanceThreshold() <= balanceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
         return;
@@ -62,7 +77,7 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, gameConfi
         targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
         targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
         targetPlayer.selectedRace = targetPlayer.getNextLowestRace();
-    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > processConfig.differenceThreshold);
+    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > balanceThreshold);
 }
 
 function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
@@ -103,10 +118,8 @@ function checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigO
     return result;
 }
 
-function constructAvailableTeamMemberData(playersToUse, amountOfAIPlayers)
+function constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, amountOfAIPlayers, baseAIObject)
 {
-    console.log(playersToUse);
-    //let allTeamMembers = [...availablePlayerMemberData];
     let allTeamMembers = [];
 
     for (let player of availablePlayerMemberData)
@@ -122,27 +135,45 @@ function constructAvailableTeamMemberData(playersToUse, amountOfAIPlayers)
 
     for (let i = 0; i < amountOfAIPlayers; i++)
     {
-        let newAIObject = { ...availableAIData[0] };
+        let newAIObject = { ...baseAIObject };
         addStateTrackingMemberProperties(newAIObject);
 
         allTeamMembers.push(newAIObject);
     }
 
-    console.log(`Found ${allTeamMembers.length} available team members`);
     return allTeamMembers;
 }
 
 function addStateTrackingMemberProperties(targetMember)
 {
-    targetMember["selectedRace"] = "";
+    targetMember["selectedRace"] = -1;
     targetMember["displayPlayer"] = function ()
     {
-        return `${this.name} - ${this.selectedRace}`;
+        return `${this.name} - ${this.raceRatings[this.selectedRace].race}`;
+    };
+    targetMember["getPrimaryRaceIndex"] = function ()
+    {
+        for (let raceIndex in this.raceRatings)
+        {
+            if (this.raceRatings[raceIndex].race == this.primaryRace)
+            {
+                return raceIndex;
+            }
+        }
+        /*
+        this.raceRatings.forEach((value, index) =>
+        {
+            if (value.race == this.primaryRace)
+            {
+                return index;
+            }
+        })
+        */
     };
     targetMember["getNextLowestRace"] = function ()
     {
-        let currentSelectedRaceScore = this.raceRatings[this.selectedRace];
-        let nextLowestRaceKey = this.selectedRace;
+        let currentSelectedRaceScore = this.raceRatings[this.selectedRace].value;
+        let newLowestRaceIndex = this.selectedRace;
         let nextLowestRaceDifference = Infinity;
 
         for (let raceKey in this.raceRatings)
@@ -153,19 +184,19 @@ function addStateTrackingMemberProperties(targetMember)
                 continue;
             }
 
-            let scoreToCheck = this.raceRatings[raceKey];
+            let scoreToCheck = this.raceRatings[raceKey].value;
             if (scoreToCheck <= currentSelectedRaceScore)
             {
                 let difference = Math.abs(scoreToCheck - currentSelectedRaceScore);
                 if (difference < nextLowestRaceDifference)
                 {
-                    nextLowestRaceKey = raceKey;
+                    newLowestRaceIndex = raceKey;
                     nextLowestRaceDifference = difference;
                 }
             }
         }
 
-        return nextLowestRaceKey;
+        return newLowestRaceIndex;
     }
 }
 
@@ -197,7 +228,9 @@ function constructBaseTeamRosterObject(teamRosterConfig)
                     continue;
                 }
 
-                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.primaryRace], 0);
+                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
+                console.log(`Team ${i + 1} strength: ${currentScore}`);
+
                 if (currentScore > strongestScore)
                 {
                     strongestScore = currentScore;
@@ -231,7 +264,9 @@ function constructBaseTeamRosterObject(teamRosterConfig)
                     continue;
                 }
 
-                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.primaryRace], 0);
+                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
+
+                console.log(`Team ${i + 1} strength: ${currentScore}`);
                 if (currentScore < weakestScore)
                 {
                     weakestScore = currentScore;
@@ -251,7 +286,7 @@ function constructBaseTeamRosterObject(teamRosterConfig)
             for (let team of this.finalTeams)
             {
                 let teamArray = team.teamMembers;
-                differences.push(teamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace], 0));
+                differences.push(teamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0));
             }
 
             return Math.abs(differences[0] - differences[1]);

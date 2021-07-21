@@ -58,7 +58,7 @@ const COMMAND_ARGS = {
     }
 }
 
-function run(commandArgs)
+async function run(commandArgs)
 {
     let commandKeys = Object.keys(COMMAND_ARGS);
 
@@ -70,7 +70,7 @@ function run(commandArgs)
         return stringArray.map((value) => Number(value));
     });
 
-    let resultTeamValues = teamBuilder.run(playersToUse, teamRosterConfig, { aiCount: amountOfAI });
+    let resultTeamValues = await teamBuilder.run(playersToUse, teamRosterConfig, { aiCount: amountOfAI });
     return constructEmbeddedDiscordMessage("Generated Teams", resultTeamValues);
 }
 
