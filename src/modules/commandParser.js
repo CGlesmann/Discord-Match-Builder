@@ -24,7 +24,7 @@ function parseUserMessageContent(content)
         .split(/\s+/);
 }
 
-function tryRunCommand(message, commandName, commandArgsMap)
+async function tryRunCommand(message, commandName, commandArgsMap)
 {
     try
     {
@@ -37,7 +37,7 @@ function tryRunCommand(message, commandName, commandArgsMap)
             return;
         }
 
-        let commandOutput = command.run(commandArgsMap);
+        let commandOutput = await command.run(commandArgsMap);
         if (commandOutput)
         {
             sendEmbeddedDiscordMessage([commandOutput], message.channel);
