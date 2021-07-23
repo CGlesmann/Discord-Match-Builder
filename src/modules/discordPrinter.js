@@ -17,10 +17,14 @@ function constructEmbeddedDiscordMessage(messageTitle, messageValues)
 
 function sendEmbeddedDiscordMessage(embeddedMessages, channel)
 {
-    embeddedMessages.forEach(element =>
+    console.log(embeddedMessages[Symbol.iterator]);
+    if (typeof embeddedMessages[Symbol.iterator] !== "function")
     {
-        channel.send(element);
-    });
+        channel.send(embeddedMessages);
+        return
+    }
+
+    embeddedMessages.forEach(embeddedMessage => { channel.send(embeddedMessage); });
 }
 
 module.exports = { constructEmbeddedDiscordMessage, sendEmbeddedDiscordMessage };

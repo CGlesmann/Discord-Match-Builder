@@ -33,14 +33,14 @@ async function tryRunCommand(message, commandName, commandArgsMap)
         const validateCommandResult = command.validate(commandArgsMap);
         if (validateCommandResult)
         {
-            sendEmbeddedDiscordMessage([validateCommandResult], message.channel);
+            sendEmbeddedDiscordMessage(validateCommandResult, message.channel);
             return;
         }
 
         let commandOutput = await command.run(commandArgsMap);
         if (commandOutput)
         {
-            sendEmbeddedDiscordMessage([commandOutput], message.channel);
+            sendEmbeddedDiscordMessage(commandOutput, message.channel);
             return;
         }
     }
@@ -86,7 +86,7 @@ function handleCommandError(channel, commandName, commandError)
 
         let embeddedErrorMessage = constructEmbeddedDiscordMessage("Command Error", {
             name: "Unexpected Error",
-            value: [`Uncaught error while running the ${commandName} command: ${commandError.message}. See logs for me info.`]
+            value: [`Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`]
         });
         sendEmbeddedDiscordMessage([embeddedErrorMessage], channel);
     }

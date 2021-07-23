@@ -1,13 +1,12 @@
 async function run(playersToUse, teamRosterConfigObject, gameConfig)
 {
-    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllPlayerData();
-    console.log(rawServerResponse);
+    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData();
 
     const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
     const baseAIObject = rawServerResponse.AIData;
     const processConfig = rawServerResponse.processConfig;
 
-    if (!availablePlayerMemberData)
+    if (!availablePlayerMemberData || availablePlayerMemberData.length === 0)
     {
         return [
             {
