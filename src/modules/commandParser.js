@@ -1,6 +1,7 @@
 const { constructEmbeddedDiscordMessage, sendEmbeddedDiscordMessage } = require("./discordPrinter.js");
 
 const COMMAND_PREFIX = "$";
+const COMMAND_CLASS_KEY = "commandClass";
 const COMMAND_NOT_FOUND_CODE = "MODULE_NOT_FOUND";
 
 function checkUserMessageForCommand(message)
@@ -28,16 +29,18 @@ async function tryRunCommand(message, commandName, commandArgsMap)
 {
     try
     {
-        const command = require(`../commands/${commandName}.js`);
+        const COMMAND_MODULE_OBJECT = require(`../commands/${commandName}.js`);
+        const COMMAND_CLASS = COMMAND_MODULE_OBJECT[COMMAND_CLASS_KEY];
+        const COMMAND = new COMMAND_CLASS();
 
-        const validateCommandResult = command.validate(commandArgsMap);
+        const validateCommandResult = COMMAND.validate(commandArgsMap);
         if (validateCommandResult)
         {
             sendEmbeddedDiscordMessage(validateCommandResult, message.channel);
             return;
         }
 
-        let commandOutput = await command.run(commandArgsMap);
+        let commandOutput = await COMMAND.run(commandArgsMap);
         if (commandOutput)
         {
             sendEmbeddedDiscordMessage(commandOutput, message.channel);
@@ -92,4 +95,4 @@ function handleCommandError(channel, commandName, commandError)
     }
 }
 
-module.exports = { checkUserMessageForCommand };
+module.exports = { COMMAND_PREFIX, COMMAND_CLASS_KEY, checkUserMessageForCommand };
