@@ -1,8 +1,14 @@
 const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
 const { COMMAND_CLASS_KEY } = require("../modules/commandParser.js");
 
 const generateMapModule = require("./generateMap.js");
 const generateTeamModule = require("./generateTeams.js");
+
+const { moveDiscordMembersToTeamVoiceChannels } = require("../modules/discordVoiceChannelManager.js");
+const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
+
+const GENERATED_TEAMS_CACHE_KEY = "generatedTeams";
 
 class GenerateMatchCommand extends BaseCommand
 {
@@ -72,7 +78,7 @@ class GenerateMatchCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs)
+    async run(receivedCommandArgs, message, applicationCache)
     {
         let messagePromises = [];
 
@@ -80,9 +86,42 @@ class GenerateMatchCommand extends BaseCommand
         messagePromises.push(generateMap.run(this.getPlayerCountMap(receivedCommandArgs)));
 
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateTeams.run(receivedCommandArgs));
+        messagePromises.push(generateTeams.getTeamRosterObject(receivedCommandArgs));
 
-        return await Promise.all(messagePromises);
+        let allGeneratedObjects = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
+        this.addGeneratedTeamsToCache(applicationCache, message.id, allGeneratedObjects[1].finalTeams);
+
+        const actionRow = this.generateVoiceChatActionRow(message.id);
+        const baseEmbed = constructEmbeddedDiscordMessage(allGeneratedObjects[0])[0]; //constructEmbeddedDiscordMessage(allGeneratedObjects[0].concat(allGeneratedObjects[1].getDisplayObjects())),
+
+        for (let teamDisplayObject of allGeneratedObjects[1].getDisplayObjects())
+        {
+            baseEmbed.addField(teamDisplayObject.title, teamDisplayObject.description, true);
+        }
+
+        baseEmbed.addField("Waiting for the match to begin...", "Select 'Start Game' to send all the players to their respective voice chats", false);
+        baseEmbed.setThumbnail('https://www.vhv.rs/dpng/d/544-5444215_logo-starcraft-2-hd-png-download.png');
+
+        return {
+            embeds: [baseEmbed],
+            components: [actionRow]
+        };
+    }
+
+    generateVoiceChatActionRow(messageId)
+    {
+        const actionRow = new MessageActionRow()
+            .addComponents(new MessageButton()
+                .setCustomId('RegenerateTeams:' + messageId)
+                .setLabel('Regenerate Teams')
+                .setStyle("PRIMARY")
+            ).addComponents(new MessageButton()
+                .setCustomId('ConfigureVoiceChat:' + messageId)
+                .setLabel('Start Game')
+                .setStyle("SUCCESS")
+            );
+
+        return actionRow;
     }
 
     getPlayerCountMap(receivedCommandArgs)
@@ -97,6 +136,23 @@ class GenerateMatchCommand extends BaseCommand
         }));
 
         return constructedArguments;
+    }
+
+    addGeneratedTeamsToCache(applicationCache, messageId, generatedTeams)
+    {
+        let generatedTeamsMap = applicationCache.get(GENERATED_TEAMS_CACHE_KEY);
+        if (generatedTeamsMap === undefined)
+        {
+            generatedTeamsMap = new Map();
+
+            generatedTeamsMap.set(messageId, generatedTeams);
+            applicationCache.set(GENERATED_TEAMS_CACHE_KEY, generatedTeamsMap);
+
+            return;
+        }
+
+        generatedTeamsMap.set(messageId, generatedTeams);
+        return;
     }
 }
 

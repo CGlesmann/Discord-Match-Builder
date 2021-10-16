@@ -27,11 +27,12 @@ class BaseCommand
     help()
     {
         return constructEmbeddedDiscordMessage(
-            "",
-            {
-                name: `${COMMAND_PREFIX}${this.COMMAND_NAME}`,
-                value: Object.keys(this.COMMAND_ARGS).map((commandKey) => { return `${commandKey} - ${this.COMMAND_ARGS[commandKey].helpText}` })
-            }
+            [
+                {
+                    title: `${COMMAND_PREFIX}${this.COMMAND_NAME}`,
+                    desciption: Object.keys(this.COMMAND_ARGS).map((commandKey) => { return `${commandKey} - ${this.COMMAND_ARGS[commandKey].helpText}` }).join()
+                }
+            ]
         );
     }
 
@@ -43,13 +44,12 @@ class BaseCommand
             commaSeperatedArgumentList = commaSeperatedArgumentList.slice(0, commaSeperatedArgumentList.length - 1);
 
             return constructEmbeddedDiscordMessage(
-                "Command Error",
-                {
-                    name: "Missing Arguments",
-                    value: [
-                        `Please ensure all the following commands are provided along with valid values for each: ${commaSeperatedArgumentList}`
-                    ]
-                }
+                [
+                    {
+                        title: "Missing Arguments",
+                        description: `Please ensure all the following commands are provided along with valid values for each: ${commaSeperatedArgumentList}`
+                    }
+                ]
             );
         }
 
@@ -61,14 +61,13 @@ class BaseCommand
             if (validateCallback && !validateCallback(stringArgumentValue))
             {
                 return constructEmbeddedDiscordMessage(
-                    "Command Error",
-                    {
-                        name: "Invalid Argument Value",
-                        value: [
-                            `Invalid value for the ${expectedArgumentKey} argument: ${this.COMMAND_ARGS[expectedArgumentKey].validateErrorText}`
-                        ]
-                    }
-                );;
+                    [
+                        {
+                            title: "Invalid Argument Value",
+                            description: `Invalid value for the ${expectedArgumentKey} argument: ${this.COMMAND_ARGS[expectedArgumentKey].validateErrorText}`
+                        }
+                    ]
+                );
             }
         }
 

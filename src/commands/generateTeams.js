@@ -67,7 +67,13 @@ class GenerateTeamCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs)
+    async run(receivedCommandArgs, message, applicationCache)
+    {
+        let teamRosterObject = this.getTeamRosterObject(receivedCommandArgs);
+        return constructEmbeddedDiscordMessage(teamRosterObject.getDisplayObjects());
+    }
+
+    async getTeamRosterObject(receivedCommandArgs)
     {
         let commandKeys = Object.keys(this.COMMAND_ARGS);
 
@@ -79,8 +85,7 @@ class GenerateTeamCommand extends BaseCommand
             return stringArray.map((value) => Number(value));
         });
 
-        let resultTeamValues = await teamBuilder.run(playersToUse, teamRosterConfig, { aiCount: amountOfAI });
-        return constructEmbeddedDiscordMessage("Generated Teams", resultTeamValues);
+        return await teamBuilder.run(playersToUse, teamRosterConfig, { aiCount: amountOfAI });
     }
 }
 

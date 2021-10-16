@@ -1,10 +1,13 @@
+const { bold, italic } = require('@discordjs/builders');
+const { constructCommandArgumentMap } = require('./commandParser.js');
+
 async function run(playersToUse, teamRosterConfigObject, gameConfig)
 {
     const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData();
 
     const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
     const baseAIObject = rawServerResponse.AIData;
-    const processConfig = rawServerResponse.processConfig;
+    const processConfig = JSON.parse(JSON.stringify(rawServerResponse.processConfig));
 
     if (!availablePlayerMemberData || availablePlayerMemberData.length === 0)
     {
@@ -33,7 +36,7 @@ async function run(playersToUse, teamRosterConfigObject, gameConfig)
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
     executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig);
 
-    return finalTeamRosters.getDisplayObjects();
+    return finalTeamRosters;
 }
 
 function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
@@ -53,7 +56,6 @@ function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
 function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig)
 {
     let balanceThreshold = Number(processConfig.differenceThreshold);
-    console.log(`balanceThreshold: ${balanceThreshold}`);
     if (finalTeamRosters.getBalanceThreshold() <= balanceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
@@ -66,7 +68,6 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processCo
         let strongestTeamIndex = finalTeamRosters.getStrongestTeamIndex(false);
         membersThatCanBeBalanced = getMembersThatCanBeBalanced(finalTeamRosters, strongestTeamIndex);
 
-        console.log(`Available Team Members: ${membersThatCanBeBalanced.length}`);
         if (membersThatCanBeBalanced.length === 0)
         {
             console.log("Could not balance teams");
@@ -148,7 +149,10 @@ function addStateTrackingMemberProperties(targetMember)
     targetMember["selectedRace"] = -1;
     targetMember["displayPlayer"] = function ()
     {
-        return `${this.name} - ${this.raceRatings[this.selectedRace].race}`;
+        let nameString = `${this.name} - `;
+        let raceString = `${this.raceRatings[this.selectedRace].race}`;
+
+        return nameString + (this.getPrimaryRaceIndex() !== this.selectedRace ? bold(italic(raceString)) : raceString);
     };
     targetMember["getPrimaryRaceIndex"] = function ()
     {
@@ -159,15 +163,6 @@ function addStateTrackingMemberProperties(targetMember)
                 return raceIndex;
             }
         }
-        /*
-        this.raceRatings.forEach((value, index) =>
-        {
-            if (value.race == this.primaryRace)
-            {
-                return index;
-            }
-        })
-        */
     };
     targetMember["getNextLowestRace"] = function ()
     {
@@ -179,7 +174,6 @@ function addStateTrackingMemberProperties(targetMember)
         {
             if (raceKey === this.selectedRace)
             {
-                console.log(`Skipping ${raceKey} as this is the selected race`);
                 continue;
             }
 
@@ -195,6 +189,7 @@ function addStateTrackingMemberProperties(targetMember)
             }
         }
 
+        console.log(`Setting ${this.name} from ${this.raceRatings[this.selectedRace].race} to ${this.raceRatings[newLowestRaceIndex].race}`);
         return newLowestRaceIndex;
     }
 }
@@ -300,10 +295,10 @@ function constructBaseTeamRosterObject(teamRosterConfig)
 
             for (let teamArray in this.finalTeams)
             {
-                let newDisplayObject = { name: `Team ${Number(teamArray) + 1}`, value: [] };
+                let newDisplayObject = { title: `Team ${Number(teamArray) + 1} (${this.finalTeams[teamArray].teamMembers.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0)})`, description: '', inline: true };
                 for (let teamMember of this.finalTeams[teamArray].teamMembers)
                 {
-                    newDisplayObject.value.push(`${teamMember.displayPlayer()}`)
+                    newDisplayObject.description += `${teamMember.displayPlayer()}\n`;
                 }
 
                 allDisplayObjects.push(newDisplayObject);
