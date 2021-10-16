@@ -1,13 +1,37 @@
 require("dotenv").config();
 
-const { checkUserMessageForCommand } = require("./modules/commandParser.js");
-const { Client } = require("discord.js");
+const NodeCache = require("node-cache");
+const { Client, Intents } = require("discord.js");
 
-const botClient = new Client();
-botClient.on('message', (message) =>
+const { checkUserMessageForCommand } = require("./modules/commandParser.js");
+const { processInteraction } = require("./modules/interactionProcessor.js");
+
+/*
+    stdTTL: 30 minutes stored in seconds
+    checkPeriod: check for deletion every minute
+    useClones: everything will be retrieved by reference
+*/
+const applicationCache = new NodeCache({ stdTTL: (60 * 30), checkperiod: 60, useClones: false });
+const botClient = new Client({
+    intents: [
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MEMBERS,
+        Intents.FLAGS.GUILD_MESSAGES,
+        Intents.FLAGS.GUILD_PRESENCES,
+        Intents.FLAGS.GUILD_VOICE_STATES,
+    ]
+});
+
+botClient.on('messageCreate', async (message) =>
 {
     if (message.author.bot) return;
-    checkUserMessageForCommand(message);
+
+    checkUserMessageForCommand(message, applicationCache);
+});
+
+botClient.on("interactionCreate", async (interaction) =>
+{
+    processInteraction(interaction, applicationCache);
 });
 
 botClient.login(process.env.DISCORDJS_BOT_TOKEN);

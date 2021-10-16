@@ -4,12 +4,12 @@ const COMMAND_PREFIX = "$";
 const COMMAND_CLASS_KEY = "commandClass";
 const COMMAND_NOT_FOUND_CODE = "MODULE_NOT_FOUND";
 
-function checkUserMessageForCommand(message)
+function checkUserMessageForCommand(message, applicationCache)
 {
     if (isCommandMessage(message.content))
     {
         const [commandName, ...commandArgs] = parseUserMessageContent(message.content);
-        tryRunCommand(message, commandName, constructCommandArgumentMap(commandArgs));
+        tryRunCommand(message, commandName, constructCommandArgumentMap(commandArgs), applicationCache);
     }
 }
 
@@ -25,7 +25,7 @@ function parseUserMessageContent(content)
         .split(/\s+/);
 }
 
-async function tryRunCommand(message, commandName, commandArgsMap)
+async function tryRunCommand(message, commandName, commandArgsMap, applicationCache)
 {
     try
     {
@@ -36,19 +36,22 @@ async function tryRunCommand(message, commandName, commandArgsMap)
         const validateCommandResult = COMMAND.validate(commandArgsMap);
         if (validateCommandResult)
         {
-            sendEmbeddedDiscordMessage(validateCommandResult, message.channel);
+            message.channel.send({
+                embeds: validateCommandResult
+            });
             return;
         }
 
-        let commandOutput = await COMMAND.run(commandArgsMap);
+        let commandOutput = await COMMAND.run(commandArgsMap, message, applicationCache);
         if (commandOutput)
         {
-            sendEmbeddedDiscordMessage(commandOutput, message.channel);
+            message.channel.send(commandOutput);
             return;
         }
     }
     catch (commandError)
     {
+        //console.log(commandError);
         handleCommandError(message.channel, commandName, commandError);
     }
 }
@@ -77,22 +80,33 @@ function handleCommandError(channel, commandName, commandError)
 {
     if (commandError.code === COMMAND_NOT_FOUND_CODE)
     {
-        let embeddedErrorMessage = constructEmbeddedDiscordMessage("Command Error", {
-            name: "Command Not Found",
-            value: [`Couldn't find a command named ${commandName}`]
+        let embeddedErrorMessage = constructEmbeddedDiscordMessage([{
+            title: "Command Not Found",
+            description: `Couldn't find a command named ${commandName}`
+        }]);
+
+        // sendEmbeddedDiscordMessage(embeddedErrorMessage, channel);
+        channel.send({
+            embeds: embeddedErrorMessage
         });
-        sendEmbeddedDiscordMessage([embeddedErrorMessage], channel);
     }
     else
     {
         console.log(commandError);
 
-        let embeddedErrorMessage = constructEmbeddedDiscordMessage("Command Error", {
-            name: "Unexpected Error",
-            value: [`Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`]
+        let embeddedErrorMessage = constructEmbeddedDiscordMessage([{
+            title: "Unexpected Error",
+            description: `Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`
+        }]);
+
+        // sendEmbeddedDiscordMessage(embeddedErrorMessage, channel);
+        channel.send({
+            embeds: embeddedErrorMessage
         });
-        sendEmbeddedDiscordMessage([embeddedErrorMessage], channel);
     }
 }
 
-module.exports = { COMMAND_PREFIX, COMMAND_CLASS_KEY, checkUserMessageForCommand };
+module.exports = {
+    COMMAND_PREFIX, COMMAND_CLASS_KEY,
+    checkUserMessageForCommand, parseUserMessageContent, constructCommandArgumentMap
+};

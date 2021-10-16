@@ -22,7 +22,7 @@ class GenerateMapCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs)
+    async run(receivedCommandArgs, message, applicationCache)
     {
         let commandKeys = Object.keys(this.COMMAND_ARGS);
 
@@ -30,13 +30,9 @@ class GenerateMapCommand extends BaseCommand
         let approvedMapArray = await getAllApprovedMaps();
 
         return constructEmbeddedDiscordMessage(
-            "",
-            {
-                name: "Map",
-                value: [
-                    `${this.getRandomMap(approvedMapArray, playerCount)}`
-                ]
-            }
+            [
+                { title: "Generated Map", description: `${this.getRandomMap(approvedMapArray, playerCount)}` }
+            ]
         );
     }
 

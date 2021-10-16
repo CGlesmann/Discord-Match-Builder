@@ -26,7 +26,7 @@ class HelpCommand extends BaseCommand
 
             const COMMAND_CLASS = require(`../commands/${fileName}`)[COMMAND_CLASS_KEY];
             const COMMAND = new COMMAND_CLASS();
-            embeddedHelpMessages.push(COMMAND.help());
+            embeddedHelpMessages.push(COMMAND.help()[0]);
         });
 
         return embeddedHelpMessages;

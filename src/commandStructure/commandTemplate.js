@@ -22,7 +22,7 @@ class NewCommandNameHere extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs)
+    async run(receivedCommandArgs, message, applicationCache)
     {
         // Place the logic to be ran when the command is executed here
         // receivedCommandArgs is a map in which the key is the argument and the value is the string value passed in for each argument
