@@ -80,28 +80,20 @@ function handleCommandError(channel, commandName, commandError)
 {
     if (commandError.code === COMMAND_NOT_FOUND_CODE)
     {
-        let embeddedErrorMessage = constructEmbeddedDiscordMessage([{
-            title: "Command Not Found",
-            description: `Couldn't find a command named ${commandName}`
-        }]);
-
-        // sendEmbeddedDiscordMessage(embeddedErrorMessage, channel);
         channel.send({
-            embeds: embeddedErrorMessage
+            embeds: constructEmbeddedDiscordMessage([{
+                title: "Command Not Found",
+                description: `Couldn't find a command named ${commandName}`
+            }])
         });
     }
     else
     {
-        console.log(commandError);
-
-        let embeddedErrorMessage = constructEmbeddedDiscordMessage([{
-            title: "Unexpected Error",
-            description: `Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`
-        }]);
-
-        // sendEmbeddedDiscordMessage(embeddedErrorMessage, channel);
         channel.send({
-            embeds: embeddedErrorMessage
+            embeds: constructEmbeddedDiscordMessage([{
+                title: "Unexpected Error",
+                description: `Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`
+            }])
         });
     }
 }
