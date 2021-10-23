@@ -40,29 +40,6 @@ class GenerateTeamCommand extends BaseCommand
                 {
                     return agrumentStringValue && !isNaN(Number(agrumentStringValue));
                 }
-            },
-            t: {
-                helpText: "A comma seperated list of team sizes",
-                validateErrorText: "Enter a comma seperated list of whole number above 0",
-                validate: function (agrumentStringValue)
-                {
-                    let argumentStringArray = agrumentStringValue.split(",");
-                    let amountOfValidNumbers = 0;
-
-                    argumentStringArray.forEach((value) =>
-                    {
-                        if (!isNaN(Number(value)))
-                        {
-                            amountOfValidNumbers++;
-                        }
-                    })
-
-                    return (
-                        argumentStringArray &&
-                        argumentStringArray.length > 0 &&
-                        amountOfValidNumbers === argumentStringArray.length
-                    );
-                }
             }
         }
     }
@@ -79,13 +56,8 @@ class GenerateTeamCommand extends BaseCommand
 
         let playersToUse = this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) => { return argumentString.split(","); });
         let amountOfAI = this.getCommandArgument(commandKeys[1], receivedCommandArgs, (argumentString) => { return Number(argumentString); });
-        let teamRosterConfig = this.getCommandArgument(commandKeys[2], receivedCommandArgs, (argumentString) =>
-        {
-            let stringArray = argumentString.split(",");
-            return stringArray.map((value) => Number(value));
-        });
 
-        return await teamBuilder.run(playersToUse, teamRosterConfig, { aiCount: amountOfAI });
+        return await teamBuilder.run(playersToUse, { aiCount: amountOfAI });
     }
 }
 

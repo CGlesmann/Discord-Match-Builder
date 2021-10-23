@@ -51,7 +51,7 @@ async function tryRunCommand(message, commandName, commandArgsMap, applicationCa
     }
     catch (commandError)
     {
-        //console.log(commandError);
+        console.log(commandError);
         handleCommandError(message.channel, commandName, commandError);
     }
 }

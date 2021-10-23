@@ -1,9 +1,8 @@
 const { bold, italic } = require('@discordjs/builders');
-const { constructCommandArgumentMap } = require('./commandParser.js');
 
-async function run(playersToUse, teamRosterConfigObject, gameConfig)
+async function run(playersToUse, gameConfig)
 {
-    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData();
+    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData(playersToUse.toString());
 
     const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
     const baseAIObject = rawServerResponse.AIData;
@@ -20,19 +19,8 @@ async function run(playersToUse, teamRosterConfigObject, gameConfig)
     }
 
     let allAvailableTeamMembers = constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, gameConfig["aiCount"], baseAIObject);
-    let configErrorMessage = checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject, processConfig);
 
-    if (configErrorMessage)
-    {
-        return [
-            {
-                name: "Error",
-                value: [configErrorMessage]
-            }
-        ];
-    }
-
-    let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
+    let finalTeamRosters = constructBaseTeamRosterObject();
     executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
     executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig);
 
@@ -76,8 +64,13 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processCo
 
         targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
         targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
-        targetPlayer.selectedRace = targetPlayer.getNextLowestRace();
-    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > balanceThreshold);
+
+        let targetRaceIndex = targetPlayer.getNextLowestRace()
+
+        console.log(`Setting ${targetPlayer.name} from ${targetPlayer.raceRatings[targetPlayer.selectedRace].race} to ${targetPlayer.raceRatings[targetRaceIndex].race}`);
+        targetPlayer.selectedRace = targetRaceIndex;
+    }
+    while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > balanceThreshold);
 }
 
 function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
@@ -96,26 +89,6 @@ function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
     }
 
     return membersThatCanBeBalanced;
-}
-
-function checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject)
-{
-    // Make sure total amount of player in configData + total selected AI Amount = total amount of players for teams
-    let requiredPlayerCount = teamRosterConfigObject.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-
-    let result = '';
-    if (allAvailableTeamMembers.length > requiredPlayerCount)
-    {
-        result = "There aren't enough team member slots to fit every person/AI";
-        console.error("There aren't enough team member slots to fit every person/AI");
-    }
-    else if (allAvailableTeamMembers.length < requiredPlayerCount)
-    {
-        result = "There aren't enough players/AIs to fill all the team member slots";
-        console.error("There aren't enough players/AIs to fill all the team member slots");
-    }
-
-    return result;
 }
 
 function constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, amountOfAIPlayers, baseAIObject)
@@ -189,12 +162,11 @@ function addStateTrackingMemberProperties(targetMember)
             }
         }
 
-        console.log(`Setting ${this.name} from ${this.raceRatings[this.selectedRace].race} to ${this.raceRatings[newLowestRaceIndex].race}`);
         return newLowestRaceIndex;
     }
 }
 
-function constructBaseTeamRosterObject(teamRosterConfig)
+function constructBaseTeamRosterObject()
 {
     let teamRoster = {
         finalTeams: [],
@@ -223,8 +195,6 @@ function constructBaseTeamRosterObject(teamRosterConfig)
                 }
 
                 let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
-                console.log(`Team ${i + 1} strength: ${currentScore}`);
-
                 if (currentScore > strongestScore)
                 {
                     strongestScore = currentScore;
@@ -259,8 +229,6 @@ function constructBaseTeamRosterObject(teamRosterConfig)
                 }
 
                 let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
-
-                console.log(`Team ${i + 1} strength: ${currentScore}`);
                 if (currentScore < weakestScore)
                 {
                     weakestScore = currentScore;
@@ -308,10 +276,11 @@ function constructBaseTeamRosterObject(teamRosterConfig)
         }
     };
 
-    for (let i = 0; i < teamRosterConfig.length; i++)
+    // TODO: Replace the hard coded two with a game config level MAX_TEAM variable
+    for (let i = 0; i < 2; i++)
     {
         teamRoster.finalTeams.push({
-            teamSize: teamRosterConfig[i],
+            teamSize: 4,
             teamMembers: []
         });
     }

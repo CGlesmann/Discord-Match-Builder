@@ -31,7 +31,15 @@ botClient.on('messageCreate', async (message) =>
 
 botClient.on("interactionCreate", async (interaction) =>
 {
-    processInteraction(interaction, applicationCache);
+    try
+    {
+        processInteraction(interaction, applicationCache);
+    }
+    catch (e)
+    {
+        console.log(`Error while processing interaction ${interaction.customId}`);
+        console.log(e);
+    }
 });
 
 botClient.login(process.env.DISCORDJS_BOT_TOKEN);

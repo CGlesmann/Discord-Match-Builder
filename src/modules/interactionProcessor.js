@@ -18,15 +18,25 @@ async function processInteraction(interaction, applicationCache)
         let generateMatchClass = new generateMatchModule[COMMAND_CLASS_KEY]();
         let newTeamsEmbed = await generateMatchClass.run(commandArgs, targetMessage, applicationCache);
 
-        interaction.update(newTeamsEmbed);
+        let targetButtonsArray = interaction.message.components[0].components;
+        for (let targetButton of targetButtonsArray)
+        {
+            if (targetButton.customId.includes("ScrollTeamViewLeft"))
+                targetButton.setDisabled(false);
+            else if (targetButton.customId.includes("ScrollTeamViewRight"))
+            {
+                targetButton.setDisabled(true);
+            }
+        }
+
+        interaction.update({ embeds: newTeamsEmbed.embeds, components: interaction.message.components });
         return;
     }
 
     if (interaction.customId.includes("ConfigureVoiceChat"))
     {
-        let targetField = newEmbed.fields[newEmbed.fields.length - 1];
-        targetField.name = "🏁 The Match has begun 🏁";
-        targetField.value = "May the odds be ever in your favor...";
+        newEmbed.title = "In Progress - Starcraft 2";
+        newEmbed.description = "Good luck to everyone! Use the buttons to report the winner once the match ends to ";
 
         const actionRow = new MessageActionRow()
             .addComponents(new MessageButton()
@@ -36,7 +46,8 @@ async function processInteraction(interaction, applicationCache)
             );
 
         let allGeneratedTeams = applicationCache.get("generatedTeams");
-        let targetGeneratedTeams = allGeneratedTeams.get(interaction.customId.split(":")[1]);
+        let targetGeneratedTeamsObject = allGeneratedTeams.get(interaction.customId.split(":")[1]);
+        let targetGeneratedTeams = targetGeneratedTeamsObject.generatedTeams[targetGeneratedTeamsObject.currentDisplayedTeamIndex];
 
         for (let i = 0; i < targetGeneratedTeams.length; i++)
         {
@@ -54,25 +65,71 @@ async function processInteraction(interaction, applicationCache)
 
     if (interaction.customId.includes("ReportVictory"))
     {
-        let targetField = newEmbed.fields[newEmbed.fields.length - 1];
         let winningTeamIndex = interaction.customId.split(":")[1];
 
-        if (targetField)
+        newEmbed.title = "Match Finished - Starcraft 2";
+        newEmbed.description = `Congrats to Team ${winningTeamIndex} for winning! Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
+
+        // const actionRow = new MessageActionRow()
+        //     .addComponents(new MessageButton()
+        //         .setCustomId('ReportVictory:-1')
+        //         .setLabel('Create New Game')
+        //         .setStyle("PRIMARY")
+        //     );
+
+        interaction.update({ embeds: [newEmbed], components: []/*, components: [actionRow]*/ });
+        return;
+    }
+
+    if (interaction.customId.includes("ScrollTeamView"))
+    {
+        let interactionIdComponents = interaction.customId.split(":");
+        let scrollDirection = interactionIdComponents[0];
+
+        let messageId = interactionIdComponents[1];
+        let generatedTeamObject = applicationCache.get("generatedTeams").get(messageId);
+
+        let targetTeamsIndex;
+        if (scrollDirection === "ScrollTeamViewLeft")
         {
-            targetField.name = "The Match has concluded!";
-            targetField.value = winningTeamIndex === "-1" ? "It's a draw!" : `Congrats to Team ${winningTeamIndex} for winning!`;
-            targetField.value += " Select 'Create New Game' to create a new game with the same parameters";
+            targetTeamsIndex = generatedTeamObject.currentDisplayedTeamIndex - 1;
         }
 
-        const actionRow = new MessageActionRow()
-            .addComponents(new MessageButton()
-                .setCustomId('ReportVictory:-1')
-                .setLabel('Create New Game')
-                .setStyle("DANGER")
-            );
+        if (scrollDirection === "ScrollTeamViewRight")
+        {
+            targetTeamsIndex = generatedTeamObject.currentDisplayedTeamIndex + 1;
+        }
+        let targetTeamsToDisplay = generatedTeamObject.generatedTeams[targetTeamsIndex];
+        generatedTeamObject.currentDisplayedTeamIndex = targetTeamsIndex;
 
-        interaction.update({ embeds: [newEmbed], components: [actionRow] });
-        return;
+        for (let i = 1; i < newEmbed.fields.length; i++)
+        {
+            let teamTotal = 0;
+            let targetTeamMembers = targetTeamsToDisplay[i - 1].teamMembers;
+            let targetField = newEmbed.fields[i];
+
+            targetField.value = "";
+            for (let targetTeamMember of targetTeamMembers)
+            {
+                teamTotal += targetTeamMember.raceRatings[targetTeamMember.selectedRace].value;
+                targetField.value += `${targetTeamMember.displayPlayer()}\n`;
+            }
+            targetField.name = `Team ${i} (${teamTotal})`;
+        }
+
+        newEmbed.title = `(${targetTeamsIndex + 1}/${generatedTeamObject.generatedTeams.length}) New Match - Starcraft 2`;
+
+        let targetButtonsArray = interaction.message.components[0].components;
+        for (let targetButton of targetButtonsArray)
+        {
+            if (targetButton.customId.includes("ScrollTeamViewLeft"))
+                targetButton.setDisabled(generatedTeamObject.currentDisplayedTeamIndex === 0);
+            else if (targetButton.customId.includes("ScrollTeamViewRight"))
+            {
+                targetButton.setDisabled(generatedTeamObject.currentDisplayedTeamIndex === generatedTeamObject.generatedTeams.length - 1);
+            }
+        }
+        interaction.update({ embeds: [newEmbed], components: interaction.message.components });
     }
 }
 
