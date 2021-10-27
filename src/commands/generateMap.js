@@ -1,4 +1,5 @@
 const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { GameMap } = require("../modules/matchBuilderClasses.js");
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
 const { getAllApprovedMaps } = require("../modules/salesforceDataReader.js");
 
@@ -27,18 +28,18 @@ class GenerateMapCommand extends BaseCommand
         let commandKeys = Object.keys(this.COMMAND_ARGS);
 
         let playerCount = this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) => { return Number(argumentString); });
-        let approvedMapArray = await getAllApprovedMaps();
+        let mapWrapperObject = await this.getRandomMap(playerCount);
 
-        return constructEmbeddedDiscordMessage(
-            [
-                { title: "Generated Map", description: `${this.getRandomMap(approvedMapArray, playerCount)}` }
-            ]
-        );
+        return constructEmbeddedDiscordMessage([{
+            title: "Generated Map",
+            description: `${mapWrapperObject.mapName}`
+        }]);
     }
 
-    getRandomMap(allApprovedMapObjects, playerCount)
+    async getRandomMap(playerCount)
     {
-        let selectedMap = "", closetIndex = -1, closetDifference = Infinity;
+        let allApprovedMapObjects = await getAllApprovedMaps(playerCount);
+        let selectedMapName = "", closetIndex = -1, closetDifference = Infinity;
 
         for (let i = 0; i < allApprovedMapObjects.length; i++)
         {
@@ -47,25 +48,26 @@ class GenerateMapCommand extends BaseCommand
 
             if (difference == 0)
             {
-                selectedMap = value.mapNames[Math.floor(Math.random() * value.mapNames.length)];
+                selectedMapName = value.mapNames[Math.floor(Math.random() * value.mapNames.length)];
                 break;
             }
             else if (difference < 0)
             {
-                if (Math.abs(difference) < closetDifference)
+                let absDifference = Math.abs(difference);
+                if (absDifference < closetDifference)
                 {
                     closetIndex = i;
-                    closetDifference = Math.abs(difference);
+                    closetDifference = absDifference;
                 }
             }
         };
 
-        if (!selectedMap)
+        if (!selectedMapName)
         {
-            selectedMap = allApprovedMapObjects[closetIndex].mapNames[Math.floor(Math.random() * allApprovedMapObjects[closetIndex].mapNames.length)];
+            selectedMapName = allApprovedMapObjects[closetIndex].mapNames[Math.floor(Math.random() * allApprovedMapObjects[closetIndex].mapNames.length)];
         }
 
-        return selectedMap;
+        return new GameMap(selectedMapName, playerCount);
     }
 }
 

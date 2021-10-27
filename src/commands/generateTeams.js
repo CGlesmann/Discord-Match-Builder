@@ -53,11 +53,9 @@ class GenerateTeamCommand extends BaseCommand
     async getTeamRosterObject(receivedCommandArgs)
     {
         let commandKeys = Object.keys(this.COMMAND_ARGS);
-
         let playersToUse = this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) => { return argumentString.split(","); });
-        let amountOfAI = this.getCommandArgument(commandKeys[1], receivedCommandArgs, (argumentString) => { return Number(argumentString); });
 
-        return await teamBuilder.run(playersToUse, { aiCount: amountOfAI });
+        return await teamBuilder.run(playersToUse);
     }
 }
 

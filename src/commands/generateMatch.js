@@ -40,54 +40,52 @@ class GenerateMatchCommand extends BaseCommand
                         amountOfValidNumbers === argumentStringArray.length
                     );
                 }
-            },
-            a: {
-                helpText: "A whole number representing the AI Count",
-                validateErrorText: "Enter a whole number thats equal or more than 0",
-                validate: function (agrumentStringValue)
-                {
-                    return agrumentStringValue && !isNaN(Number(agrumentStringValue));
-                }
             }
         }
     }
 
     async run(receivedCommandArgs, message, applicationCache)
     {
+        let { generatedMatch } = await this.generateMatchData(receivedCommandArgs);
+
+        this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
+        let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+
+        return {
+            embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
+            components: [this.generateVoiceChatActionRow(message.id)]
+        };
+    }
+
+    async generateMatchData(receivedCommandArgs)
+    {
         let messagePromises = [];
 
         const generateMap = new generateMapModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateMap.run(this.getPlayerCountMap(receivedCommandArgs)));
+        messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(receivedCommandArgs)));
 
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
         messagePromises.push(generateTeams.getTeamRosterObject(receivedCommandArgs));
 
         let allGeneratedObjects = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
-        this.addGeneratedTeamsToCache(applicationCache, message.id, allGeneratedObjects[1].finalTeams);
 
-        const actionRow = this.generateVoiceChatActionRow(message.id);
+        allGeneratedObjects[1].setMap(allGeneratedObjects[0]);
+        return {
+            generatedMatch: allGeneratedObjects[1]
+        };
+    }
 
-        //constructEmbeddedDiscordMessage(allGeneratedObjects[0])[0]; constructEmbeddedDiscordMessage(allGeneratedObjects[0].concat(allGeneratedObjects[1].getDisplayObjects())),
-
-        let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
-        const baseEmbed = constructEmbeddedDiscordMessage([{
+    generateMatchDisplayEmbed(currentMatchCount, generatedMatch)
+    {
+        const matchDisplayEmbed = constructEmbeddedDiscordMessage([{
             title: `(${currentMatchCount}/${currentMatchCount}) New Match - Starcraft 2`,
             description: "Waiting for the match to begin... Select 'Start Game' to send all the players to their respective voice chats. Alternatively, select \"Generate Another Set\" to create additional team options"
         }])[0];
 
-        baseEmbed.addField("Map", allGeneratedObjects[0][0].description, false);
-        for (let teamDisplayObject of allGeneratedObjects[1].getDisplayObjects())
-        {
-            baseEmbed.addField(teamDisplayObject.title, teamDisplayObject.description, true);
-        }
+        matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
+        matchDisplayEmbed.setThumbnail('https://www.vhv.rs/dpng/d/544-5444215_logo-starcraft-2-hd-png-download.png');
 
-        //baseEmbed.addField("Waiting for the match to begin...", "Select 'Start Game' to send all the players to their respective voice chats", false);
-        baseEmbed.setThumbnail('https://www.vhv.rs/dpng/d/544-5444215_logo-starcraft-2-hd-png-download.png');
-
-        return {
-            embeds: [baseEmbed],
-            components: [actionRow]
-        };
+        return matchDisplayEmbed;
     }
 
     generateVoiceChatActionRow(messageId)
@@ -116,18 +114,14 @@ class GenerateMatchCommand extends BaseCommand
         return actionRow;
     }
 
-    getPlayerCountMap(receivedCommandArgs)
+    getPlayerCount(receivedCommandArgs)
     {
-        let constructedArguments = new Map();
-
         let commandKeys = Object.keys(this.COMMAND_ARGS);
-        constructedArguments.set("c", this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) =>
+        return this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) =>
         {
             let stringArray = argumentString.split(",");
             return stringArray.length;
-        }));
-
-        return constructedArguments;
+        });
     }
 
     getMatchCountByMessageId(applicationCache, messageId)

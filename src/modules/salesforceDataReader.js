@@ -23,4 +23,13 @@ async function getAllApprovedMaps(minimumPlayerCount)
     return returnData;
 }
 
-module.exports = { getAllTeamBuildingData, getAllApprovedMaps }
+async function postMatchResult(matchResult)
+{
+    const DATA_QUERY_PATH = `/Starcraft/v1/MatchBuilder`;
+    let body = { "matchResultJSON": JSON.stringify(matchResult) };
+
+    await SF_CONNECTION.login(process.env.SF_INSTANCE_USERNAME, process.env.SF_INSTANCE_PASSWORD);
+    await SF_CONNECTION.apex.post(DATA_QUERY_PATH, body, matchResult);
+}
+
+module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult }

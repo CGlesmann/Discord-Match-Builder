@@ -1,5 +1,7 @@
 const { MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
 const { moveDiscordMembersToTeamVoiceChannels } = require("./discordVoiceChannelManager.js");
+const { postMatchResult } = require("./salesforceDataReader.js");
+const { contructMatchResultWrapper } = require("./eloRatingManager.js");
 
 const generateMatchModule = require("../commands/generateMatch.js");
 const { COMMAND_CLASS_KEY, parseUserMessageContent, constructCommandArgumentMap } = require("./commandParser.js");
@@ -35,40 +37,52 @@ async function processInteraction(interaction, applicationCache)
 
     if (interaction.customId.includes("ConfigureVoiceChat"))
     {
+        let messageId = interaction.customId.split(":")[1];
+
         newEmbed.title = "In Progress - Starcraft 2";
-        newEmbed.description = "Good luck to everyone! Use the buttons to report the winner once the match ends to ";
+        newEmbed.description = "Good luck to everyone! Use the buttons to report the winner.";
 
         const actionRow = new MessageActionRow()
             .addComponents(new MessageButton()
-                .setCustomId('ReportVictory:-1')
+                .setCustomId(`ReportVictory:-1:${messageId}`)
                 .setLabel('Draw')
                 .setStyle("DANGER")
             );
 
         let allGeneratedTeams = applicationCache.get("generatedTeams");
-        let targetGeneratedTeamsObject = allGeneratedTeams.get(interaction.customId.split(":")[1]);
-        let targetGeneratedTeams = targetGeneratedTeamsObject.generatedTeams[targetGeneratedTeamsObject.currentDisplayedTeamIndex];
+        let targetGeneratedTeamsObject = allGeneratedTeams.get(messageId);
+        let targetGeneratedMatch = targetGeneratedTeamsObject.generatedTeams[targetGeneratedTeamsObject.currentDisplayedTeamIndex];
 
-        for (let i = 0; i < targetGeneratedTeams.length; i++)
+        for (let i = 0; i < targetGeneratedMatch.teams.length; i++)
         {
             actionRow.addComponents(new MessageButton()
-                .setCustomId('ReportVictory:' + (i + 1))
+                .setCustomId(`ReportVictory:${(i + 1)}:${messageId}`)
                 .setLabel(`Team ${i + 1} Won`)
                 .setStyle("SUCCESS")
             )
         }
 
-        moveDiscordMembersToTeamVoiceChannels(targetGeneratedTeams, interaction.message);
+        moveDiscordMembersToTeamVoiceChannels(targetGeneratedMatch.teams, interaction.message);
         interaction.update({ embeds: [newEmbed], components: [actionRow] });
         return;
     }
 
     if (interaction.customId.includes("ReportVictory"))
     {
-        let winningTeamIndex = interaction.customId.split(":")[1];
+        let [idName, winningTeamIndex, messageId] = interaction.customId.split(":");
 
         newEmbed.title = "Match Finished - Starcraft 2";
-        newEmbed.description = `Congrats to Team ${winningTeamIndex} for winning! Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
+        if (Number(winningTeamIndex) !== -1)
+        {
+            // A Team Won
+            newEmbed.fields[Number(winningTeamIndex)].name = `${newEmbed.fields[Number(winningTeamIndex)].name} - Winner!`;
+            newEmbed.description = `Congrats to Team ${winningTeamIndex} for winning! Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
+        }
+        else
+        {
+            // A Draw
+            newEmbed.description = `It's a draw. Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
+        }
 
         // const actionRow = new MessageActionRow()
         //     .addComponents(new MessageButton()
@@ -76,6 +90,12 @@ async function processInteraction(interaction, applicationCache)
         //         .setLabel('Create New Game')
         //         .setStyle("PRIMARY")
         //     );
+
+        let generatedTeamObject = applicationCache.get("generatedTeams").get(messageId);
+        postMatchResult(contructMatchResultWrapper(
+            winningTeamIndex - 1,
+            generatedTeamObject.generatedTeams[generatedTeamObject.currentDisplayedTeamIndex]
+        ));
 
         interaction.update({ embeds: [newEmbed], components: []/*, components: [actionRow]*/ });
         return;
@@ -99,22 +119,19 @@ async function processInteraction(interaction, applicationCache)
         {
             targetTeamsIndex = generatedTeamObject.currentDisplayedTeamIndex + 1;
         }
-        let targetTeamsToDisplay = generatedTeamObject.generatedTeams[targetTeamsIndex];
+        let targetMatchObject = generatedTeamObject.generatedTeams[targetTeamsIndex];
         generatedTeamObject.currentDisplayedTeamIndex = targetTeamsIndex;
 
+        newEmbed.fields[0] = targetMatchObject.map.getMapDisplay();
         for (let i = 1; i < newEmbed.fields.length; i++)
         {
-            let teamTotal = 0;
-            let targetTeamMembers = targetTeamsToDisplay[i - 1].teamMembers;
-            let targetField = newEmbed.fields[i];
+            let targetTeam = targetMatchObject.teams[i - 1];
 
-            targetField.value = "";
-            for (let targetTeamMember of targetTeamMembers)
-            {
-                teamTotal += targetTeamMember.raceRatings[targetTeamMember.selectedRace].value;
-                targetField.value += `${targetTeamMember.displayPlayer()}\n`;
-            }
-            targetField.name = `Team ${i} (${teamTotal})`;
+            let targetField = newEmbed.fields[i];
+            let newField = targetTeam.getTeamDisplay();
+
+            targetField.name = newField.name;
+            targetField.value = newField.value;
         }
 
         newEmbed.title = `(${targetTeamsIndex + 1}/${generatedTeamObject.generatedTeams.length}) New Match - Starcraft 2`;

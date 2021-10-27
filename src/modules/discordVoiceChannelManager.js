@@ -37,9 +37,9 @@ function generateMemberIdToTeamIndexMap(generatedTeamRoster)
     {
         for (let generatedMember of generatedTeam.teamMembers)
         {
-            if (!generatedMember.discordNameTag) { continue; }
+            if (!generatedMember.discordId) { continue; }
 
-            discordUserToTeamIndexMap.set(generatedMember.discordNameTag, teamIndex);
+            discordUserToTeamIndexMap.set(generatedMember.discordId, teamIndex);
         }
         teamIndex++;
     }

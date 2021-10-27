@@ -25,6 +25,7 @@ const botClient = new Client({
 botClient.on('messageCreate', async (message) =>
 {
     if (message.author.bot) return;
+    console.log(message);
 
     checkUserMessageForCommand(message, applicationCache);
 });
