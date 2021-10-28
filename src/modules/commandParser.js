@@ -92,7 +92,7 @@ function handleCommandError(channel, commandName, commandError)
         channel.send({
             embeds: constructEmbeddedDiscordMessage([{
                 title: "Unexpected Error",
-                description: `Uncaught error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`
+                description: `Error while running the ${commandName} command \n\n${commandError.message}. \n\nSee logs for more info.`
             }])
         });
     }

@@ -18,35 +18,40 @@ class GenerateMatchCommand extends BaseCommand
 
         this.COMMAND_NAME = "generateMatch";
         this.COMMAND_ARGS = {
-            p: {
-                helpText: "A comma seperated list of human players to use",
-                validateErrorText: "Enter a comma seperated list of player names (must match the name in the config)",
-                validate: function (agrumentStringValue)
-                {
-                    let argumentStringArray = agrumentStringValue.split(",");
-                    let amountOfValidNumbers = 0;
+            // p: {
+            //     helpText: "A comma seperated list of human players to use",
+            //     validateErrorText: "Enter a comma seperated list of player names (must match the name in the config)",
+            //     validate: function (agrumentStringValue)
+            //     {
+            //         let argumentStringArray = agrumentStringValue.split(",");
+            //         let amountOfValidNumbers = 0;
 
-                    argumentStringArray.forEach((value) =>
-                    {
-                        if (value)
-                        {
-                            amountOfValidNumbers++;
-                        }
-                    })
+            //         argumentStringArray.forEach((value) =>
+            //         {
+            //             if (value)
+            //             {
+            //                 amountOfValidNumbers++;
+            //             }
+            //         })
 
-                    return (
-                        argumentStringArray &&
-                        argumentStringArray.length > 0 &&
-                        amountOfValidNumbers === argumentStringArray.length
-                    );
-                }
-            }
+            //         return (
+            //             argumentStringArray &&
+            //             argumentStringArray.length > 0 &&
+            //             amountOfValidNumbers === argumentStringArray.length
+            //         );
+            //     }
+            // }
         }
     }
 
     async run(receivedCommandArgs, message, applicationCache)
     {
-        let { generatedMatch } = await this.generateMatchData(receivedCommandArgs);
+        if (!message.mentions.users || message.mentions.users.size === 0)
+        {
+            throw { message: "Please Tag at least 1 User" };
+        }
+
+        let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message);
 
         this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
         let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
@@ -57,15 +62,15 @@ class GenerateMatchCommand extends BaseCommand
         };
     }
 
-    async generateMatchData(receivedCommandArgs)
+    async generateMatchData(receivedCommandArgs, message)
     {
         let messagePromises = [];
 
         const generateMap = new generateMapModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(receivedCommandArgs)));
+        messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(message)));
 
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateTeams.getTeamRosterObject(receivedCommandArgs));
+        messagePromises.push(generateTeams.getTeamRosterObject(message));
 
         let allGeneratedObjects = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
 
@@ -114,14 +119,15 @@ class GenerateMatchCommand extends BaseCommand
         return actionRow;
     }
 
-    getPlayerCount(receivedCommandArgs)
+    getPlayerCount(message)
     {
-        let commandKeys = Object.keys(this.COMMAND_ARGS);
-        return this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) =>
-        {
-            let stringArray = argumentString.split(",");
-            return stringArray.length;
-        });
+        return message.mentions.users.size;
+        // let commandKeys = Object.keys(this.COMMAND_ARGS);
+        // return this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) =>
+        // {
+        //     let stringArray = argumentString.split(",");
+        //     return stringArray.length;
+        // });
     }
 
     getMatchCountByMessageId(applicationCache, messageId)
