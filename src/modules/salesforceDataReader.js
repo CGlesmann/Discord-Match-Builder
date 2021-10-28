@@ -5,9 +5,9 @@ const SF_CONNECTION = new jsforce.Connection({
     loginUrl: SF_LOGIN_URL
 });
 
-async function getAllTeamBuildingData(targetPlayerIds)
+async function getAllTeamBuildingData(targetPlayerIds, targetGameId)
 {
-    const DATA_QUERY_PATH = `/Starcraft/v1/TeamBuilder?targetPlayerIds=${targetPlayerIds}`;
+    const DATA_QUERY_PATH = `/Starcraft/v1/TeamBuilder?targetPlayerIds=${targetPlayerIds}&targetGameId=${targetGameId}`;
     await SF_CONNECTION.login(process.env.SF_INSTANCE_USERNAME, process.env.SF_INSTANCE_PASSWORD);
 
     let returnData = await SF_CONNECTION.apex.get(DATA_QUERY_PATH);
@@ -23,6 +23,14 @@ async function getAllApprovedMaps(minimumPlayerCount)
     return returnData;
 }
 
+async function getAllGames()
+{
+    const DATA_QUERY_PATH = `/MatchGenerator/v1/GameData`;
+    await SF_CONNECTION.login(process.env.SF_INSTANCE_USERNAME, process.env.SF_INSTANCE_PASSWORD);
+
+    return await SF_CONNECTION.apex.get(DATA_QUERY_PATH);
+}
+
 async function postMatchResult(matchResult)
 {
     const DATA_QUERY_PATH = `/Starcraft/v1/MatchBuilder`;
@@ -32,4 +40,4 @@ async function postMatchResult(matchResult)
     await SF_CONNECTION.apex.post(DATA_QUERY_PATH, body, matchResult);
 }
 
-module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult }
+module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames }

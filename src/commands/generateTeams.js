@@ -50,10 +50,10 @@ class GenerateTeamCommand extends BaseCommand
         return constructEmbeddedDiscordMessage(teamRosterObject.getDisplayObjects());
     }
 
-    async getTeamRosterObject(message)
+    async getTeamRosterObject(message, targetGameData)
     {
         let playersToUse = Array.from(message.mentions.users, (([userId, userObject]) => userId));
-        return await teamBuilder.run(playersToUse);
+        return await teamBuilder.run(playersToUse, targetGameData);
     }
 }
 

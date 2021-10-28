@@ -1,5 +1,5 @@
 const { BaseCommand } = require("../commandStructure/baseCommand.js");
-const { MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
+const { MessageSelectMenu, MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
 const { COMMAND_CLASS_KEY } = require("../modules/commandParser.js");
 
 const generateMapModule = require("./generateMap.js");
@@ -7,6 +7,7 @@ const generateTeamModule = require("./generateTeams.js");
 
 const { moveDiscordMembersToTeamVoiceChannels } = require("../modules/discordVoiceChannelManager.js");
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
+const { getAllGames } = require("../modules/salesforceDataReader.js");
 
 const GENERATED_TEAMS_CACHE_KEY = "generatedTeams";
 
@@ -51,18 +52,80 @@ class GenerateMatchCommand extends BaseCommand
             throw { message: "Please Tag at least 1 User" };
         }
 
-        let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message);
+        let lastGeneratedMatches = applicationCache.get(GENERATED_TEAMS_CACHE_KEY)?.get(message.id);
+        if (lastGeneratedMatches && lastGeneratedMatches.generatedTeams)
+        {
+            let targetGameData = lastGeneratedMatches.generatedTeams[0].game;
 
-        this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
-        let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+            let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
+
+            this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
+            let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+
+            return {
+                embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
+                components: [this.generateVoiceChatActionRow(message.id)]
+            }
+        }
+
+        let gameSelectScreen = await this.constructGameSelectScreen(applicationCache);
+        let filter = (interaction) => interaction.isSelectMenu() && interaction.customId === 'SelectGame';
+        let collector = message.channel.createMessageComponentCollector({ filter, max: "1" })
+
+        collector.on('collect', async (interaction) =>
+        {
+            let targetGameId = interaction.values[0];
+            let targetGameData = applicationCache.get("allGames").get(targetGameId);
+
+            let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
+
+            this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
+            let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+
+            interaction.update({
+                embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
+                components: [this.generateVoiceChatActionRow(message.id)]
+            });
+        });
+
+        return gameSelectScreen;
+    }
+
+    async constructGameSelectScreen(applicationCache)
+    {
+        let allGames = await getAllGames();
+        let options = [];
+
+        let gameIdToGameInfoMap = new Map();
+        for (let game of allGames)
+        {
+            gameIdToGameInfoMap.set(game.gameId, game);
+            options.push({
+                label: game.gameName,
+                value: game.gameId,
+                description: "This is a test description"
+            });
+        }
+        applicationCache.set('allGames', gameIdToGameInfoMap);
+
+        const testMultiSelectMenu = new MessageActionRow().addComponents(
+            new MessageSelectMenu()
+                .setCustomId('SelectGame')
+                .setPlaceholder('Select a Game')
+                .addOptions(options)
+        );
+
+        const testEmbed = new MessageEmbed();
+        testEmbed.setTitle('Select Game');
+        testEmbed.setDescription('Please select a game in order to generate a match.');
 
         return {
-            embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
-            components: [this.generateVoiceChatActionRow(message.id)]
+            embeds: [testEmbed],
+            components: [testMultiSelectMenu]
         };
     }
 
-    async generateMatchData(receivedCommandArgs, message)
+    async generateMatchData(receivedCommandArgs, message, targetGameData)
     {
         let messagePromises = [];
 
@@ -70,7 +133,7 @@ class GenerateMatchCommand extends BaseCommand
         messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(message)));
 
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateTeams.getTeamRosterObject(message));
+        messagePromises.push(generateTeams.getTeamRosterObject(message, targetGameData));
 
         let allGeneratedObjects = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
 
@@ -83,12 +146,12 @@ class GenerateMatchCommand extends BaseCommand
     generateMatchDisplayEmbed(currentMatchCount, generatedMatch)
     {
         const matchDisplayEmbed = constructEmbeddedDiscordMessage([{
-            title: `(${currentMatchCount}/${currentMatchCount}) New Match - Starcraft 2`,
+            title: `(${currentMatchCount}/${currentMatchCount}) New Match - ${generatedMatch.game.gameName}`,
             description: "Waiting for the match to begin... Select 'Start Game' to send all the players to their respective voice chats. Alternatively, select \"Generate Another Set\" to create additional team options"
         }])[0];
 
         matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
-        matchDisplayEmbed.setThumbnail('https://www.vhv.rs/dpng/d/544-5444215_logo-starcraft-2-hd-png-download.png');
+        matchDisplayEmbed.setThumbnail(`${generatedMatch.game.gameLogoURL}`);
 
         return matchDisplayEmbed;
     }

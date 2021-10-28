@@ -8,7 +8,7 @@ const { COMMAND_CLASS_KEY, parseUserMessageContent, constructCommandArgumentMap 
 
 async function processInteraction(interaction, applicationCache)
 {
-    if (!interaction.isButton()) { return; }
+    //if (!interaction.isButton()) { return; }
     const newEmbed = new MessageEmbed(interaction.message.embeds[0]);
 
     if (interaction.customId.includes("RegenerateTeams"))

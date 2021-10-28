@@ -4,11 +4,13 @@ class TeamMemberRoleRating
 {
     roleName;
     roleRating;
+    isPrimary;
 
-    constructor(roleName, roleRating)
+    constructor(roleName, roleRating, isPrimary)
     {
         this.roleName = roleName;
         this.roleRating = roleRating;
+        this.isPrimary = isPrimary;
     }
 }
 
@@ -43,13 +45,14 @@ class TeamMember
 
     getPrimaryRoleIndex()
     {
-        for (let roleIndex in this.memberRoleRatings)
-        {
-            if (this.memberRoleRatings[roleIndex].roleName == this.primaryRole)
-            {
-                return roleIndex;
-            }
-        }
+        return this.primaryRole;
+        // for (let roleIndex in this.memberRoleRatings)
+        // {
+        //     if (this.memberRoleRatings[roleIndex].roleName == this.primaryRole)
+        //     {
+        //         return roleIndex;
+        //     }
+        // }
     }
 
     getNextLowestRoleIndex()
@@ -161,6 +164,7 @@ class GameMap
 
 class Match
 {
+    game;
     map;
     teams;
     maxTeamCount;

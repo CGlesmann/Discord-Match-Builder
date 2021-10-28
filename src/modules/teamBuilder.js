@@ -1,16 +1,16 @@
 const { Team, TeamMember, TeamMemberRoleRating, Match } = require("./matchBuilderClasses.js");
 
-async function run(playersToUse)
+async function run(playersToUse, targetGameData)
 {
     console.log("===========Initializing Team Builder===========");
-    const rawPlayerServerData = await getPlayerDataFromServer(playersToUse);
+    const rawPlayerServerData = await getPlayerDataFromServer(playersToUse, targetGameData.gameId);
     if (!rawPlayerServerData || rawPlayerServerData.length === 0)
     {
         throw { message: "No Players were found on the server" };
     }
 
     let unsortedTeamMembers = constructTeamMembers(rawPlayerServerData);
-    let match = constructMatchObject(4, 2); // TODO: Replace hard coded Max Team Size/Team Count with Data from Server
+    let match = constructMatchObject(targetGameData);
 
     executeInitialPlacings(unsortedTeamMembers, match);
     executeTeamBalance(match);
@@ -19,11 +19,11 @@ async function run(playersToUse)
     return match;
 }
 
-async function getPlayerDataFromServer(playersToUse)
+async function getPlayerDataFromServer(playersToUse, targetGameId)
 {
     console.log("Fetching Player Data from Server...");
 
-    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData(playersToUse.toString());
+    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData(playersToUse.toString(), targetGameId);
     return rawServerResponse.availableTeamMembers;
 }
 
@@ -35,18 +35,24 @@ function constructTeamMembers(rawPlayerServerData)
     for (let playerData of rawPlayerServerData)
     {
         let teamMemberRatings = [];
+        let primaryRoleIndex, currentIndex = 0;
         for (let roleRating of playerData.roleRatings)
         {
+            if (roleRating.isPrimary) { primaryRoleIndex = currentIndex; }
+
             teamMemberRatings.push(new TeamMemberRoleRating(
                 roleRating.role,
-                roleRating.value
+                roleRating.value,
+                roleRating.isPrimary
             ));
+
+            currentIndex++;
         }
 
         unsortedTeamMembers.push(new TeamMember(
             playerData.name,
             playerData.discordNameTag,
-            playerData.primaryRole,
+            primaryRoleIndex,
             teamMemberRatings
         ));
     }
@@ -54,16 +60,18 @@ function constructTeamMembers(rawPlayerServerData)
     return unsortedTeamMembers;
 }
 
-function constructMatchObject(maxTeamSize, maxTeamCount)
+function constructMatchObject(targetGameData)
 {
     console.log("Constructing Base Match Object...");
 
-    let match = new Match(maxTeamCount);
-    for (let i = 0; i < maxTeamCount; i++)
+    let match = new Match(targetGameData.maxTeamCount);
+    match.game = targetGameData;
+
+    for (let i = 0; i < targetGameData.maxTeamCount; i++)
     {
         match.addTeam(new Team(
             `${i + 1}`,
-            maxTeamSize
+            targetGameData.maxTeamSize
         ));
     }
 
