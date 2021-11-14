@@ -11,7 +11,7 @@ const { processInteraction } = require("./modules/interactionProcessor.js");
     checkPeriod: check for deletion every minute
     useClones: everything will be retrieved by reference
 */
-const applicationCache = new NodeCache({ stdTTL: (60 * 30), checkperiod: 60, useClones: false });
+const applicationCache = new NodeCache({ stdTTL: (60 * 60), checkperiod: 60, useClones: false });
 const botClient = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
@@ -31,7 +31,15 @@ botClient.on('messageCreate', async (message) =>
 
 botClient.on("interactionCreate", async (interaction) =>
 {
-    processInteraction(interaction, applicationCache);
+    try
+    {
+        processInteraction(interaction, applicationCache);
+    }
+    catch (e)
+    {
+        console.log(`Error while processing interaction ${interaction.customId}`);
+        console.log(e);
+    }
 });
 
 botClient.login(process.env.DISCORDJS_BOT_TOKEN);

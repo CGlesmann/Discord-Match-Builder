@@ -1,62 +1,110 @@
-const { bold, italic } = require('@discordjs/builders');
-const { constructCommandArgumentMap } = require('./commandParser.js');
+const { Team, TeamMember, TeamMemberRoleRating, Match } = require("./matchBuilderClasses.js");
 
-async function run(playersToUse, teamRosterConfigObject, gameConfig)
+async function run(playersToUse, targetGameData)
 {
-    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData();
-
-    const availablePlayerMemberData = rawServerResponse.availableTeamMembers;
-    const baseAIObject = rawServerResponse.AIData;
-    const processConfig = JSON.parse(JSON.stringify(rawServerResponse.processConfig));
-
-    if (!availablePlayerMemberData || availablePlayerMemberData.length === 0)
+    console.log("===========Initializing Team Builder===========");
+    const rawPlayerServerData = await getPlayerDataFromServer(playersToUse, targetGameData.gameId);
+    if (!rawPlayerServerData || rawPlayerServerData.length === 0)
     {
-        return [
-            {
-                name: "Error",
-                value: "Could not retrieve data from the server"
-            }
-        ];
+        throw { message: "No Players were found on the server" };
     }
 
-    let allAvailableTeamMembers = constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, gameConfig["aiCount"], baseAIObject);
-    let configErrorMessage = checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject, processConfig);
+    let unsortedTeamMembers = constructTeamMembers(rawPlayerServerData);
+    let match = constructMatchObject(playersToUse.length, targetGameData);
 
-    if (configErrorMessage)
-    {
-        return [
-            {
-                name: "Error",
-                value: [configErrorMessage]
-            }
-        ];
-    }
+    executeInitialPlacings(unsortedTeamMembers, match);
+    executeTeamBalance(match);
 
-    let finalTeamRosters = constructBaseTeamRosterObject(teamRosterConfigObject);
-    executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters);
-    executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig);
-
-    return finalTeamRosters;
+    console.log("\n===========Match Successfully Generated===========\n")
+    return match;
 }
 
-function executeInitialPlacings(allAvailableTeamMembers, finalTeamRosters)
+async function getPlayerDataFromServer(playersToUse, targetGameId)
 {
-    while (allAvailableTeamMembers.length > 0)
+    console.log("Fetching Player Data from Server...");
+
+    const rawServerResponse = await require("../modules/salesforceDataReader.js").getAllTeamBuildingData(playersToUse.toString(), targetGameId);
+    return rawServerResponse.availableTeamMembers;
+}
+
+function constructTeamMembers(rawPlayerServerData)
+{
+    console.log("Constructing Team Members from Server Data...");
+
+    let unsortedTeamMembers = [];
+    for (let playerData of rawPlayerServerData)
     {
-        let targetIndex = Math.floor(Math.random() * allAvailableTeamMembers.length);
-        let targetPlayer = allAvailableTeamMembers[targetIndex];
+        let teamMemberRatings = [];
+        let primaryRoleIndex = 0, currentIndex = 0;
+        for (let roleRating of playerData.roleRatings)
+        {
+            if (roleRating.isPrimary)
+            {
+                console.log(`Setting ${playerData.name}'s initial primary role index to ${currentIndex} (${roleRating.roleName})`);
+                primaryRoleIndex = currentIndex;
+            }
 
-        targetPlayer.selectedRace = targetPlayer.getPrimaryRaceIndex();
-        finalTeamRosters.addTeamMember(targetPlayer, finalTeamRosters.getWeakestTeamIndex(true));
+            teamMemberRatings.push(new TeamMemberRoleRating(
+                roleRating.role,
+                roleRating.value,
+                roleRating.isPrimary
+            ));
 
-        allAvailableTeamMembers.splice(targetIndex, 1);
+            currentIndex++;
+        }
+
+        unsortedTeamMembers.push(new TeamMember(
+            playerData.name,
+            playerData.discordNameTag,
+            primaryRoleIndex,
+            teamMemberRatings
+        ));
+    }
+
+    return unsortedTeamMembers;
+}
+
+function constructMatchObject(playerCount, targetGameData)
+{
+    console.log("Constructing Base Match Object...");
+
+    let match = new Match(targetGameData.maxTeamCount);
+    match.game = targetGameData;
+
+    let amountOfTeamsNeeded = Math.max(targetGameData.minTeamCount, Math.ceil(playerCount / targetGameData.maxTeamSize))
+    for (let i = 0; i < amountOfTeamsNeeded; i++)
+    {
+        match.addTeam(new Team(
+            `${i + 1}`,
+            targetGameData.maxTeamSize
+        ));
+    }
+
+    return match;
+}
+
+function executeInitialPlacings(unsortedTeamMembers, match)
+{
+    console.log("\n===========Starting Initial Placements===========");
+    while (unsortedTeamMembers.length > 0)
+    {
+        let targetMemberIndex = Math.floor(Math.random() * unsortedTeamMembers.length);
+        let targetMember = unsortedTeamMembers[targetMemberIndex];
+        let weakestTeamIndex = match.getWeakestTeamIndex(true);
+
+        console.log(`Adding ${targetMember.teamMemberName} to Team ${weakestTeamIndex}`);
+
+        match.addTeamMember(targetMember, weakestTeamIndex);
+        unsortedTeamMembers.splice(targetMemberIndex, 1);
     }
 }
 
-function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processConfig)
+function executeTeamBalance(match)
 {
-    let balanceThreshold = Number(processConfig.differenceThreshold);
-    if (finalTeamRosters.getBalanceThreshold() <= balanceThreshold)
+    console.log("\n===========Starting Team Balance===========")
+
+    let balanceThreshold = 200; //TODO: Replace this hard coded value with one from the server
+    if (match.getBalanceThreshold() <= balanceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
         return;
@@ -65,8 +113,8 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processCo
     let membersThatCanBeBalanced;
     do
     {
-        let strongestTeamIndex = finalTeamRosters.getStrongestTeamIndex(false);
-        membersThatCanBeBalanced = getMembersThatCanBeBalanced(finalTeamRosters, strongestTeamIndex);
+        let strongestTeamIndex = match.getStrongestTeamIndex(false);
+        membersThatCanBeBalanced = getMembersThatCanBeBalanced(match, strongestTeamIndex);
 
         if (membersThatCanBeBalanced.length === 0)
         {
@@ -76,247 +124,27 @@ function executeTeamBalance(allAvailableTeamMembers, finalTeamRosters, processCo
 
         targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
         targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
-        targetPlayer.selectedRace = targetPlayer.getNextLowestRace();
-    } while (membersThatCanBeBalanced.length > 0 && finalTeamRosters.getBalanceThreshold() > balanceThreshold);
+
+        let targetRoleIndex = targetPlayer.getNextLowestRoleIndex()
+
+        console.log(`Setting ${targetPlayer.teamMemberName} from ${targetPlayer.memberRoleRatings[targetPlayer.selectedMemberRoleIndex].roleName} to ${targetPlayer.memberRoleRatings[targetRoleIndex].roleName}`);
+        targetPlayer.updateTeamMemberRole(targetRoleIndex);
+    }
+    while (membersThatCanBeBalanced.length > 0 && match.getBalanceThreshold() > balanceThreshold);
 }
 
-function getMembersThatCanBeBalanced(finalTeamRosters, teamIndex)
+function getMembersThatCanBeBalanced(match, teamIndex)
 {
     let membersThatCanBeBalanced = [];
-    let targetTeam = finalTeamRosters.finalTeams[teamIndex].teamMembers;
+    let targetTeam = match.teams[teamIndex].teamMembers;
 
     for (let teamMember of targetTeam)
     {
-        if (teamMember.selectedRace === teamMember.getNextLowestRace())
-        {
-            continue;
-        }
-
+        if (teamMember.selectedMemberRoleIndex === teamMember.getNextLowestRoleIndex()) { continue; }
         membersThatCanBeBalanced.push(teamMember);
     }
 
     return membersThatCanBeBalanced;
-}
-
-function checkForInvalidConfiguration(allAvailableTeamMembers, teamRosterConfigObject)
-{
-    // Make sure total amount of player in configData + total selected AI Amount = total amount of players for teams
-    let requiredPlayerCount = teamRosterConfigObject.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-
-    let result = '';
-    if (allAvailableTeamMembers.length > requiredPlayerCount)
-    {
-        result = "There aren't enough team member slots to fit every person/AI";
-        console.error("There aren't enough team member slots to fit every person/AI");
-    }
-    else if (allAvailableTeamMembers.length < requiredPlayerCount)
-    {
-        result = "There aren't enough players/AIs to fill all the team member slots";
-        console.error("There aren't enough players/AIs to fill all the team member slots");
-    }
-
-    return result;
-}
-
-function constructAvailableTeamMemberData(playersToUse, availablePlayerMemberData, amountOfAIPlayers, baseAIObject)
-{
-    let allTeamMembers = [];
-
-    for (let player of availablePlayerMemberData)
-    {
-        if (playersToUse.includes(player.name))
-        {
-            let newPlayerObject = { ...player };
-            addStateTrackingMemberProperties(newPlayerObject)
-
-            allTeamMembers.push(newPlayerObject);
-        }
-    }
-
-    for (let i = 0; i < amountOfAIPlayers; i++)
-    {
-        let newAIObject = { ...baseAIObject };
-        addStateTrackingMemberProperties(newAIObject);
-
-        allTeamMembers.push(newAIObject);
-    }
-
-    return allTeamMembers;
-}
-
-function addStateTrackingMemberProperties(targetMember)
-{
-    targetMember["selectedRace"] = -1;
-    targetMember["displayPlayer"] = function ()
-    {
-        let nameString = `${this.name} - `;
-        let raceString = `${this.raceRatings[this.selectedRace].race}`;
-
-        return nameString + (this.getPrimaryRaceIndex() !== this.selectedRace ? bold(italic(raceString)) : raceString);
-    };
-    targetMember["getPrimaryRaceIndex"] = function ()
-    {
-        for (let raceIndex in this.raceRatings)
-        {
-            if (this.raceRatings[raceIndex].race == this.primaryRace)
-            {
-                return raceIndex;
-            }
-        }
-    };
-    targetMember["getNextLowestRace"] = function ()
-    {
-        let currentSelectedRaceScore = this.raceRatings[this.selectedRace].value;
-        let newLowestRaceIndex = this.selectedRace;
-        let nextLowestRaceDifference = Infinity;
-
-        for (let raceKey in this.raceRatings)
-        {
-            if (raceKey === this.selectedRace)
-            {
-                continue;
-            }
-
-            let scoreToCheck = this.raceRatings[raceKey].value;
-            if (scoreToCheck <= currentSelectedRaceScore)
-            {
-                let difference = Math.abs(scoreToCheck - currentSelectedRaceScore);
-                if (difference < nextLowestRaceDifference)
-                {
-                    newLowestRaceIndex = raceKey;
-                    nextLowestRaceDifference = difference;
-                }
-            }
-        }
-
-        console.log(`Setting ${this.name} from ${this.raceRatings[this.selectedRace].race} to ${this.raceRatings[newLowestRaceIndex].race}`);
-        return newLowestRaceIndex;
-    }
-}
-
-function constructBaseTeamRosterObject(teamRosterConfig)
-{
-    let teamRoster = {
-        finalTeams: [],
-        getStrongestTeamIndex: function (skipFullTeams)
-        {
-            let strongestScore = -Infinity;
-            let strongestTeamIndex = -1;
-
-            for (let i = 0; i < this.finalTeams.length; i++)
-            {
-                if (skipFullTeams && this.isTeamFull(i))
-                {
-                    continue;
-                }
-
-                let targetTeamArray = this.finalTeams[i].teamMembers;
-                if (targetTeamArray.length === 0)
-                {
-                    if (strongestScore < 0)
-                    {
-                        strongestScore = 0;
-                        strongestTeamIndex = i;
-                    }
-
-                    continue;
-                }
-
-                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
-                console.log(`Team ${i + 1} strength: ${currentScore}`);
-
-                if (currentScore > strongestScore)
-                {
-                    strongestScore = currentScore;
-                    strongestTeamIndex = i;
-                }
-            }
-
-            return strongestTeamIndex;
-        },
-        getWeakestTeamIndex: function (skipFullTeams)
-        {
-            let weakestScore = Infinity;
-            let weakestTeamIndex = -1;
-
-            for (let i = 0; i < this.finalTeams.length; i++)
-            {
-                if (skipFullTeams && this.isTeamFull(i))
-                {
-                    continue;
-                }
-
-                let targetTeamArray = this.finalTeams[i].teamMembers;
-                if (targetTeamArray.length === 0)
-                {
-                    if (weakestScore > 0)
-                    {
-                        weakestScore = 0;
-                        weakestTeamIndex = i;
-                    }
-
-                    continue;
-                }
-
-                let currentScore = targetTeamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0);
-
-                console.log(`Team ${i + 1} strength: ${currentScore}`);
-                if (currentScore < weakestScore)
-                {
-                    weakestScore = currentScore;
-                    weakestTeamIndex = i;
-                }
-            }
-
-            return weakestTeamIndex;
-        },
-        isTeamFull: function (teamIndex)
-        {
-            return (this.finalTeams[teamIndex].teamSize === this.finalTeams[teamIndex].teamMembers.length);
-        },
-        getBalanceThreshold: function ()
-        {
-            let differences = [];
-            for (let team of this.finalTeams)
-            {
-                let teamArray = team.teamMembers;
-                differences.push(teamArray.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0));
-            }
-
-            return Math.abs(differences[0] - differences[1]);
-        },
-        addTeamMember: function (newTeamMember, teamIndex)
-        {
-            this.finalTeams[teamIndex].teamMembers.push(newTeamMember);
-        },
-        getDisplayObjects: function ()
-        {
-            let allDisplayObjects = [];
-
-            for (let teamArray in this.finalTeams)
-            {
-                let newDisplayObject = { title: `Team ${Number(teamArray) + 1} (${this.finalTeams[teamArray].teamMembers.reduce((accumulator, currentValue) => accumulator + currentValue.raceRatings[currentValue.selectedRace].value, 0)})`, description: '', inline: true };
-                for (let teamMember of this.finalTeams[teamArray].teamMembers)
-                {
-                    newDisplayObject.description += `${teamMember.displayPlayer()}\n`;
-                }
-
-                allDisplayObjects.push(newDisplayObject);
-            }
-
-            return allDisplayObjects;
-        }
-    };
-
-    for (let i = 0; i < teamRosterConfig.length; i++)
-    {
-        teamRoster.finalTeams.push({
-            teamSize: teamRosterConfig[i],
-            teamMembers: []
-        });
-    }
-
-    return teamRoster;
 }
 
 module.exports = { run };

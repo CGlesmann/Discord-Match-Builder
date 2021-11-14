@@ -1,5 +1,7 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
 const { MessageEmbed, MessageActionRow, MessageSelectMenu } = require("discord.js");
+
+const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { getAllGames } = require("../modules/salesforceDataReader.js");
 
 class TestDiscordPrintCommand extends BaseCommand
 {
@@ -9,53 +11,32 @@ class TestDiscordPrintCommand extends BaseCommand
         this.COMMAND_ARGS = {}
     }
 
-    async run(receivedCommandArgs)
+    async run(receivedCommandArgs, message, applicationCache)
     {
+        let allGames = await getAllGames();
+        let options = [];
+
+        let gameIdToGameInfoMap = new Map();
+        for (let game of allGames)
+        {
+            gameIdToGameInfoMap.set(game.gameId, game);
+            options.push({
+                label: game.gameName,
+                value: game.gameId
+            });
+        }
+        applicationCache.set('allGames', gameIdToGameInfoMap);
+
         const testMultiSelectMenu = new MessageActionRow().addComponents(
             new MessageSelectMenu()
-                .setCustomId('TestId')
-                .setPlaceholder('Select Target Players')
-                .addOptions([
-                    {
-                        label: 'Chris',
-                        value: 'Chris'
-                    },
-                    {
-                        label: 'Nick',
-                        value: 'Nick'
-                    },
-                    {
-                        label: 'Lance',
-                        value: 'Lance'
-                    },
-                    {
-                        label: 'Kaysia',
-                        value: 'Kaysia'
-                    },
-                    {
-                        label: 'John',
-                        value: 'John'
-                    },
-                    {
-                        label: 'Charlese',
-                        value: 'Charlese'
-                    },
-                    {
-                        label: 'Jacob',
-                        value: 'Jacob'
-                    },
-                    {
-                        label: 'Cody',
-                        value: 'Cody'
-                    }
-                ])
-                .setMinValues(2)
-                .setMaxValues(8)
+                .setCustomId('SelectGame')
+                .setPlaceholder('Select a Game')
+                .addOptions(options)
         );
 
         const testEmbed = new MessageEmbed();
-
-        testEmbed.setTitle('Test Message');
+        testEmbed.setTitle('Select Game');
+        testEmbed.setDescription('Please select a game in order to generate a match.');
 
         return {
             embeds: [testEmbed],
