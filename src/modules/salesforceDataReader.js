@@ -14,18 +14,18 @@ async function getAllTeamBuildingData(targetPlayerIds, targetGameId)
     return returnData;
 }
 
-async function getAllApprovedMaps(minimumPlayerCount)
+async function getAllApprovedMaps(minimumPlayerCount, targetGameId)
 {
-    const DATA_QUERY_PATH = `/Starcraft/v1/MapData?minimumPlayerCount=${minimumPlayerCount}`;
+    const DATA_QUERY_PATH = `/Starcraft/v1/MapData?minimumPlayerCount=${minimumPlayerCount}&targetGameId=${targetGameId}`;
     await SF_CONNECTION.login(process.env.SF_INSTANCE_USERNAME, process.env.SF_INSTANCE_PASSWORD);
 
     let returnData = await SF_CONNECTION.apex.get(DATA_QUERY_PATH);
     return returnData;
 }
 
-async function getAllGames()
+async function getAllGames(requiredPlayerCount)
 {
-    const DATA_QUERY_PATH = `/MatchGenerator/v1/GameData`;
+    const DATA_QUERY_PATH = `/MatchGenerator/v1/GameData?requiredPlayerCount=${requiredPlayerCount}`;
     await SF_CONNECTION.login(process.env.SF_INSTANCE_USERNAME, process.env.SF_INSTANCE_PASSWORD);
 
     return await SF_CONNECTION.apex.get(DATA_QUERY_PATH);

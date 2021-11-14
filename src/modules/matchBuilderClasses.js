@@ -20,19 +20,19 @@ class TeamMember
     discordId;
 
     memberRoleRatings;
-    primaryRole;
+    primaryRoleIndex;
     selectedMemberRoleIndex;
 
     team;
 
-    constructor(teamMemberName, discordId, primaryRole, memberRoleRatings)
+    constructor(teamMemberName, discordId, primaryRoleIndex, memberRoleRatings)
     {
         this.teamMemberName = teamMemberName;
         this.discordId = discordId;
         this.memberRoleRatings = memberRoleRatings;
-        this.primaryRole = primaryRole;
 
-        this.selectedMemberRoleIndex = this.getPrimaryRoleIndex();
+        this.primaryRoleIndex = primaryRoleIndex;
+        this.selectedMemberRoleIndex = primaryRoleIndex;
     }
 
     getPlayerDisplay()
@@ -40,25 +40,13 @@ class TeamMember
         let nameString = `${this.teamMemberName}`;
         let roleString = `${this.memberRoleRatings[this.selectedMemberRoleIndex].roleName}`;
 
-        return `${nameString} - ${(this.getPrimaryRoleIndex() !== this.selectedMemberRoleIndex ? bold(italic(roleString)) : roleString)}`;
-    }
-
-    getPrimaryRoleIndex()
-    {
-        return this.primaryRole;
-        // for (let roleIndex in this.memberRoleRatings)
-        // {
-        //     if (this.memberRoleRatings[roleIndex].roleName == this.primaryRole)
-        //     {
-        //         return roleIndex;
-        //     }
-        // }
+        return `${nameString} - ${(this.primaryRoleIndex != this.selectedMemberRoleIndex ? bold(italic(roleString)) : roleString)}`;
     }
 
     getNextLowestRoleIndex()
     {
-        let currentSelectedRaceScore = this.memberRoleRatings[this.selectedMemberRoleIndex].roleRating;
-        let newLowestRaceIndex = this.selectedMemberRoleIndex;
+        let currentSelectedRoleScore = this.memberRoleRatings[this.selectedMemberRoleIndex].roleRating;
+        let newLowestRoleIndex = this.selectedMemberRoleIndex;
         let nextLowestRaceDifference = Infinity;
 
         for (let roleKey in this.memberRoleRatings)
@@ -66,18 +54,18 @@ class TeamMember
             if (roleKey === this.selectedMemberRoleIndex) { continue; }
 
             let roleScore = this.memberRoleRatings[roleKey].roleRating;
-            if (roleScore <= currentSelectedRaceScore)
+            if (roleScore <= currentSelectedRoleScore)
             {
-                let difference = Math.abs(roleScore - currentSelectedRaceScore);
+                let difference = Math.abs(roleScore - currentSelectedRoleScore);
                 if (difference < nextLowestRaceDifference)
                 {
-                    newLowestRaceIndex = roleKey;
+                    newLowestRoleIndex = roleKey;
                     nextLowestRaceDifference = difference;
                 }
             }
         }
 
-        return newLowestRaceIndex;
+        return newLowestRoleIndex;
     }
 
     getSelectedRoleRating()

@@ -36,9 +36,9 @@ class GenerateMapCommand extends BaseCommand
         }]);
     }
 
-    async getRandomMap(playerCount)
+    async getRandomMap(playerCount, targetGameId)
     {
-        let allApprovedMapObjects = await getAllApprovedMaps(playerCount);
+        let allApprovedMapObjects = await getAllApprovedMaps(playerCount, targetGameId);
         let selectedMapName = "", closetIndex = -1, closetDifference = Infinity;
 
         for (let i = 0; i < allApprovedMapObjects.length; i++)

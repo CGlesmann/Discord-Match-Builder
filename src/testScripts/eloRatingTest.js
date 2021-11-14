@@ -1,4 +1,4 @@
-const { contructMatchResultWrapper } = require("./modules/eloRatingManager.js");
+const { contructMatchResultWrapper } = require("../modules/eloRatingManager.js");
 
 const PROTOSS_ROLE_INDEX = 0;
 const TERRAN_ROLE_INDEX = 1;
@@ -669,7 +669,7 @@ for (let match of matches)
 console.log("==================Overall Stats==================")
 for (let statObject of Array.from(STATS.values()))
 {
-    console.log(`${statObject.name} (W: ${(statObject.wins / statObject.gamesPlayed) * 100}% / L: ${(statObject.loses / statObject.gamesPlayed) * 100}%)`);
+    console.log(`${statObject.name} (G: ${statObject.gamesPlayed} / W: ${((statObject.wins / statObject.gamesPlayed) * 100).toFixed(2)}% / L: ${((statObject.loses / statObject.gamesPlayed) * 100).toFixed(2)}%)`);
     for (let roleChangeTracker of statObject.ratingChanges)
     {
         console.log(`  ${roleChangeTracker.ratingName}: ${roleChangeTracker.startingValue} -> ${roleChangeTracker.startingValue + roleChangeTracker.changeValue}`);

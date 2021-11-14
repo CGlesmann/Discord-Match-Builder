@@ -11,7 +11,7 @@ const { processInteraction } = require("./modules/interactionProcessor.js");
     checkPeriod: check for deletion every minute
     useClones: everything will be retrieved by reference
 */
-const applicationCache = new NodeCache({ stdTTL: (60 * 30), checkperiod: 60, useClones: false });
+const applicationCache = new NodeCache({ stdTTL: (60 * 60), checkperiod: 60, useClones: false });
 const botClient = new Client({
     intents: [
         Intents.FLAGS.GUILDS,

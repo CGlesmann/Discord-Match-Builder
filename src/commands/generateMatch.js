@@ -9,7 +9,7 @@ const { moveDiscordMembersToTeamVoiceChannels } = require("../modules/discordVoi
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
 const { getAllGames } = require("../modules/salesforceDataReader.js");
 
-const GENERATED_TEAMS_CACHE_KEY = "generatedTeams";
+const { GENERATED_TEAMS_CACHE_KEY, ALL_GAMES_CACHE_KEY } = require("../utils/Constants.js");
 
 class GenerateMatchCommand extends BaseCommand
 {
@@ -68,14 +68,16 @@ class GenerateMatchCommand extends BaseCommand
             }
         }
 
-        let gameSelectScreen = await this.constructGameSelectScreen(applicationCache);
+        let gameSelectScreen = await this.constructGameSelectScreen(message, applicationCache);
+        if (!gameSelectScreen) { return; }
+
         let filter = (interaction) => interaction.isSelectMenu() && interaction.customId === 'SelectGame';
         let collector = message.channel.createMessageComponentCollector({ filter, max: "1" })
 
         collector.on('collect', async (interaction) =>
         {
             let targetGameId = interaction.values[0];
-            let targetGameData = applicationCache.get("allGames").get(targetGameId);
+            let targetGameData = applicationCache.get(ALL_GAMES_CACHE_KEY).get(targetGameId);
 
             let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
 
@@ -91,22 +93,38 @@ class GenerateMatchCommand extends BaseCommand
         return gameSelectScreen;
     }
 
-    async constructGameSelectScreen(applicationCache)
+    async constructGameSelectScreen(message, applicationCache)
     {
-        let allGames = await getAllGames();
+        let requiredPlayerCount = message.mentions.users.size;
+        let allGames = await getAllGames(requiredPlayerCount);
+
+        if (!allGames || allGames.length === 0)
+        {
+            const testEmbed = new MessageEmbed();
+            testEmbed.setTitle('No Games');
+            testEmbed.setDescription(`No games were found on the server that can be played with ${requiredPlayerCount} player(s)`);
+
+            message.channel.send({
+                embeds: [testEmbed]
+            });
+
+            return null;
+        }
+
         let options = [];
 
         let gameIdToGameInfoMap = new Map();
         for (let game of allGames)
         {
+            console.log(`${game.gameDescription} (${game.minTeamSize * game.minTeamCount} - ${game.maxTeamSize * game.maxTeamCount} Players)`);
             gameIdToGameInfoMap.set(game.gameId, game);
             options.push({
                 label: game.gameName,
                 value: game.gameId,
-                description: "This is a test description"
+                description: `${game.gameDescription} (${game.minTeamSize * game.minTeamCount} - ${game.maxTeamSize * game.maxTeamCount} Players)`
             });
         }
-        applicationCache.set('allGames', gameIdToGameInfoMap);
+        applicationCache.set(ALL_GAMES_CACHE_KEY, gameIdToGameInfoMap);
 
         const testMultiSelectMenu = new MessageActionRow().addComponents(
             new MessageSelectMenu()
@@ -117,7 +135,7 @@ class GenerateMatchCommand extends BaseCommand
 
         const testEmbed = new MessageEmbed();
         testEmbed.setTitle('Select Game');
-        testEmbed.setDescription('Please select a game in order to generate a match.');
+        testEmbed.setDescription(`${allGames.length} games were found. Please select a game in order to generate a match.`);
 
         return {
             embeds: [testEmbed],
@@ -130,7 +148,7 @@ class GenerateMatchCommand extends BaseCommand
         let messagePromises = [];
 
         const generateMap = new generateMapModule[COMMAND_CLASS_KEY]();
-        messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(message)));
+        messagePromises.push(generateMap.getRandomMap(this.getPlayerCount(message), targetGameData.gameId));
 
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
         messagePromises.push(generateTeams.getTeamRosterObject(message, targetGameData));
@@ -151,6 +169,26 @@ class GenerateMatchCommand extends BaseCommand
         }])[0];
 
         matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
+
+        // Check for nick and lance
+        for (let generatedTeam of generatedMatch.teams)
+        {
+            let nickPresent = false, lancePresent = false;
+            for (let generatedPlayer of generatedTeam.teamMembers)
+            {
+                if (generatedPlayer.teamMemberName === 'Lance')
+                    lancePresent = true
+                if (generatedPlayer.teamMemberName === 'Nick')
+                    nickPresent = true
+            }
+
+            if (nickPresent && lancePresent)
+            {
+                matchDisplayEmbed.addField("⚠ WARNING ⚠", "NICK AND LANCE ARE ON THE SAME TEAM, REGENERATION RECOMMENDED", false);
+            }
+        }
+
+
         matchDisplayEmbed.setThumbnail(`${generatedMatch.game.gameLogoURL}`);
 
         return matchDisplayEmbed;

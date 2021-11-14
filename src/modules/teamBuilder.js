@@ -10,7 +10,7 @@ async function run(playersToUse, targetGameData)
     }
 
     let unsortedTeamMembers = constructTeamMembers(rawPlayerServerData);
-    let match = constructMatchObject(targetGameData);
+    let match = constructMatchObject(playersToUse.length, targetGameData);
 
     executeInitialPlacings(unsortedTeamMembers, match);
     executeTeamBalance(match);
@@ -35,10 +35,14 @@ function constructTeamMembers(rawPlayerServerData)
     for (let playerData of rawPlayerServerData)
     {
         let teamMemberRatings = [];
-        let primaryRoleIndex, currentIndex = 0;
+        let primaryRoleIndex = 0, currentIndex = 0;
         for (let roleRating of playerData.roleRatings)
         {
-            if (roleRating.isPrimary) { primaryRoleIndex = currentIndex; }
+            if (roleRating.isPrimary)
+            {
+                console.log(`Setting ${playerData.name}'s initial primary role index to ${currentIndex} (${roleRating.roleName})`);
+                primaryRoleIndex = currentIndex;
+            }
 
             teamMemberRatings.push(new TeamMemberRoleRating(
                 roleRating.role,
@@ -60,14 +64,15 @@ function constructTeamMembers(rawPlayerServerData)
     return unsortedTeamMembers;
 }
 
-function constructMatchObject(targetGameData)
+function constructMatchObject(playerCount, targetGameData)
 {
     console.log("Constructing Base Match Object...");
 
     let match = new Match(targetGameData.maxTeamCount);
     match.game = targetGameData;
 
-    for (let i = 0; i < targetGameData.maxTeamCount; i++)
+    let amountOfTeamsNeeded = Math.max(targetGameData.minTeamCount, Math.ceil(playerCount / targetGameData.maxTeamSize))
+    for (let i = 0; i < amountOfTeamsNeeded; i++)
     {
         match.addTeam(new Team(
             `${i + 1}`,

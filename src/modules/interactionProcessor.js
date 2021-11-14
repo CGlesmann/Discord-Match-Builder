@@ -5,6 +5,7 @@ const { contructMatchResultWrapper } = require("./eloRatingManager.js");
 
 const generateMatchModule = require("../commands/generateMatch.js");
 const { COMMAND_CLASS_KEY, parseUserMessageContent, constructCommandArgumentMap } = require("./commandParser.js");
+const { GENERATED_TEAMS_CACHE_KEY } = require("../utils/Constants.js");
 
 async function processInteraction(interaction, applicationCache)
 {
@@ -49,7 +50,7 @@ async function processInteraction(interaction, applicationCache)
                 .setStyle("DANGER")
             );
 
-        let allGeneratedTeams = applicationCache.get("generatedTeams");
+        let allGeneratedTeams = applicationCache.get(GENERATED_TEAMS_CACHE_KEY);
         let targetGeneratedTeamsObject = allGeneratedTeams.get(messageId);
         let targetGeneratedMatch = targetGeneratedTeamsObject.generatedTeams[targetGeneratedTeamsObject.currentDisplayedTeamIndex];
 
@@ -71,18 +72,38 @@ async function processInteraction(interaction, applicationCache)
     {
         let [idName, winningTeamIndex, messageId] = interaction.customId.split(":");
 
+        let generatedTeamObject = applicationCache.get(GENERATED_TEAMS_CACHE_KEY).get(messageId);
+        let matchResult = contructMatchResultWrapper(
+            winningTeamIndex - 1,
+            generatedTeamObject.generatedTeams[generatedTeamObject.currentDisplayedTeamIndex]
+        );
+
         newEmbed.title = "Match Finished - Starcraft 2";
-        if (Number(winningTeamIndex) !== -1)
+        newEmbed.description = `${winningTeamIndex !== -1 ? `Congrats to Team ${winningTeamIndex} for winning!` : "Its a draw."} The match result/rating changes have been recorded. Select 'Create New Game' to create a new game with the same parameters (To Be Added)`
+
+        let targetFieldIndex = 1; // 0 = Map Field, 1 = First Team Field
+        for (let teamResult of matchResult.teamResults)
         {
-            // A Team Won
-            newEmbed.fields[Number(winningTeamIndex)].name = `${newEmbed.fields[Number(winningTeamIndex)].name} - Winner!`;
-            newEmbed.description = `Congrats to Team ${winningTeamIndex} for winning! Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
+            let targetField = newEmbed.fields[targetFieldIndex];
+            if (teamResult.result === "Won")
+                targetField.name += ' - Winner!';
+
+            let playerDisplays = targetField.value.split("\n");
+            let newPlayerDisplays = [], currentDisplayIndex = 0;
+
+            for (let playerDisplay of playerDisplays)
+            {
+                let changeSign = Math.sign(teamResult.roleRatingUpdates[currentDisplayIndex].ratingChange) === 1 ? "+" : "";
+
+                newPlayerDisplays.push(`${playerDisplay} : (${changeSign}${teamResult.roleRatingUpdates[currentDisplayIndex].ratingChange})`)
+                currentDisplayIndex += 1;
+            }
+
+            targetFieldIndex += 1;
+            targetField.value = newPlayerDisplays.join("\n");
         }
-        else
-        {
-            // A Draw
-            newEmbed.description = `It's a draw. Select 'Create New Game' to create a new game with the same parameters (To Be Added)`;
-        }
+
+        postMatchResult(matchResult);
 
         // const actionRow = new MessageActionRow()
         //     .addComponents(new MessageButton()
@@ -90,12 +111,6 @@ async function processInteraction(interaction, applicationCache)
         //         .setLabel('Create New Game')
         //         .setStyle("PRIMARY")
         //     );
-
-        let generatedTeamObject = applicationCache.get("generatedTeams").get(messageId);
-        postMatchResult(contructMatchResultWrapper(
-            winningTeamIndex - 1,
-            generatedTeamObject.generatedTeams[generatedTeamObject.currentDisplayedTeamIndex]
-        ));
 
         interaction.update({ embeds: [newEmbed], components: []/*, components: [actionRow]*/ });
         return;
@@ -107,7 +122,7 @@ async function processInteraction(interaction, applicationCache)
         let scrollDirection = interactionIdComponents[0];
 
         let messageId = interactionIdComponents[1];
-        let generatedTeamObject = applicationCache.get("generatedTeams").get(messageId);
+        let generatedTeamObject = applicationCache.get(GENERATED_TEAMS_CACHE_KEY).get(messageId);
 
         let targetTeamsIndex;
         if (scrollDirection === "ScrollTeamViewLeft")
@@ -123,7 +138,7 @@ async function processInteraction(interaction, applicationCache)
         generatedTeamObject.currentDisplayedTeamIndex = targetTeamsIndex;
 
         newEmbed.fields[0] = targetMatchObject.map.getMapDisplay();
-        for (let i = 1; i < newEmbed.fields.length; i++)
+        for (let i = 1; i <= targetMatchObject.teams.length; i++)
         {
             let targetTeam = targetMatchObject.teams[i - 1];
 
@@ -134,7 +149,7 @@ async function processInteraction(interaction, applicationCache)
             targetField.value = newField.value;
         }
 
-        newEmbed.title = `(${targetTeamsIndex + 1}/${generatedTeamObject.generatedTeams.length}) New Match - Starcraft 2`;
+        newEmbed.title = `(${targetTeamsIndex + 1}/${generatedTeamObject.generatedTeams.length}) New Match - ${generatedTeamObject.generatedTeams[targetTeamsIndex].game.gameName}`;
 
         let targetButtonsArray = interaction.message.components[0].components;
         for (let targetButton of targetButtonsArray)

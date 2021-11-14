@@ -82,7 +82,11 @@ function contructMatchResultWrapper(winningTeamIndex, match)
 
     for (let i = 0; i < match.teams.length; i++)
     {
-        if (i === winningTeamIndex) { continue; }
+        if (i === winningTeamIndex)
+        {
+            matchResult.addTeamResult(winningTeamResult);
+            continue;
+        }
 
         let targetTeam = match.teams[i];
         losingTeams.push(targetTeam);
@@ -92,26 +96,25 @@ function contructMatchResultWrapper(winningTeamIndex, match)
         newTeamResult.setRatingPoints(Math.round(calculateScoreChange(
             K_FACTOR,
             LOSE_ACTUAL_AMOUNT,
-            calculateExpectedScore(targetTeam, winningTeam)
+            calculateExpectedScore(targetTeam.teamRating, winningTeam.teamRating)
         )));
 
         matchResult.addTeamResult(newTeamResult)
     }
 
-    let expectedScore = calculateExpectedScore(winningTeam, losingTeams[0]);
+    let expectedScore = calculateExpectedScore(winningTeam.teamRating, losingTeams[0].teamRating);
     winningTeamResult.setRatingPoints(Math.round(calculateScoreChange(
         K_FACTOR,
         WIN_ACTUAL_AMOUNT,
         expectedScore
     )));
 
-    matchResult.addTeamResult(winningTeamResult);
     return matchResult;
 }
 
-function calculateExpectedScore(targetTeam, opposingTeam)
+function calculateExpectedScore(targetRating, opposingRating)
 {
-    let teamDifference = (opposingTeam.teamRating - targetTeam.teamRating);
+    let teamDifference = (opposingRating - targetRating);
     let exponent = teamDifference / 400;
     let denominator = 1 + Math.pow(10, exponent);
     let expectedScore = (1 / denominator);
@@ -124,4 +127,4 @@ function calculateScoreChange(kFactor, actualScore, expectedScore)
     return (kFactor * (actualScore - expectedScore));
 }
 
-module.exports = { contructMatchResultWrapper };
+module.exports = { contructMatchResultWrapper, calculateExpectedScore, calculateScoreChange };
