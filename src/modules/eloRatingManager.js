@@ -1,6 +1,9 @@
 class MatchResult
 {
     teamResults;
+    matchMapId;
+    gameId;
+    winningTeam;
 
     constructor()
     {
@@ -23,10 +26,7 @@ class TeamResult
         this.roleRatingUpdates = [];
         for (let teamMember of team.teamMembers)
         {
-            this.roleRatingUpdates.push(new RoleRatingUpdate(
-                teamMember.discordId,
-                teamMember.memberRoleRatings[teamMember.selectedMemberRoleIndex].roleName
-            ));
+            this.roleRatingUpdates.push(new RoleRatingUpdate(teamMember));
         }
     }
 
@@ -40,27 +40,38 @@ class TeamResult
         //this.ratingPointsEarned = pointsEarned;
         for (let roleRatingUpdate of this.roleRatingUpdates)
         {
-            roleRatingUpdate.ratingChange = pointsEarned;
+            roleRatingUpdate.role_rating_change = pointsEarned;
         }
     }
 }
 
 class RoleRatingUpdate
 {
-    playerDiscordId;
-    roleName;
-    ratingChange;
+    player_role_rating;
+    game_team;
 
-    constructor(playerDiscordId, roleName)
+    match; // This is added After Match Insert
+    role_rating_change;
+    old_role_rating;
+
+    constructor(teamMember)
     {
-        this.playerDiscordId = playerDiscordId;
-        this.roleName = roleName;
-        this.ratingChange = 0;
+        this.player_role_rating = teamMember.memberRoleRatings[teamMember.selectedMemberRoleIndex].roleRatingDBId;
+        this.old_role_rating = teamMember.memberRoleRatings[teamMember.selectedMemberRoleIndex].roleRating;
+        this.game_team = teamMember.team.teamConfigId;
+
+        this.role_rating_change = 0;
+        this.match = null;
     }
 
     updateRatingChange(newRatingChange)
     {
-        this.ratingChange = newRatingChange;
+        this.role_rating_change = newRatingChange;
+    }
+
+    setMatchResultId(matchId)
+    {
+        this.match = matchId;
     }
 }
 
@@ -72,7 +83,11 @@ function contructMatchResultWrapper(winningTeamIndex, match)
     const WIN_ACTUAL_AMOUNT = 1;
     const DRAW_ACTUAL_AMOUNT = 0.5;
     const LOSE_ACTUAL_AMOUNT = 0;
+
     const matchResult = new MatchResult();
+    matchResult.matchMapId = match.map.id;
+    matchResult.gameId = match.game.gameId;
+    matchResult.winningTeam = match.teams[winningTeamIndex].teamConfigId;
 
     let losingTeams = [];
     let winningTeam = match.teams[winningTeamIndex];

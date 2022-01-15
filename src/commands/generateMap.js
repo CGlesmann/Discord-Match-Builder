@@ -39,7 +39,7 @@ class GenerateMapCommand extends BaseCommand
     async getRandomMap(playerCount, targetGameId)
     {
         let allApprovedMapObjects = await getAllApprovedMaps(playerCount, targetGameId);
-        let selectedMapName = "", closetIndex = -1, closetDifference = Infinity;
+        let selectedMapId = "", selectedMapName = "", closetIndex = -1, closetDifference = Infinity;
 
         for (let i = 0; i < allApprovedMapObjects.length; i++)
         {
@@ -48,7 +48,10 @@ class GenerateMapCommand extends BaseCommand
 
             if (difference == 0)
             {
-                selectedMapName = value.mapNames[Math.floor(Math.random() * value.mapNames.length)];
+                const targetMap = value.mapNames[Math.floor(Math.random() * value.mapNames.length)];
+
+                selectedMapName = targetMap.name;
+                selectedMapId = targetMap.id;
                 break;
             }
             else if (difference < 0)
@@ -64,10 +67,12 @@ class GenerateMapCommand extends BaseCommand
 
         if (!selectedMapName)
         {
-            selectedMapName = allApprovedMapObjects[closetIndex].mapNames[Math.floor(Math.random() * allApprovedMapObjects[closetIndex].mapNames.length)];
+            const targetMap = allApprovedMapObjects[closetIndex].mapNames[Math.floor(Math.random() * allApprovedMapObjects[closetIndex].mapNames.length)];
+            selectedMapName = targetMap.name;
+            selectedMapId = targetMap.id;
         }
 
-        return new GameMap(selectedMapName, playerCount);
+        return new GameMap(selectedMapId, selectedMapName, playerCount);
     }
 }
 

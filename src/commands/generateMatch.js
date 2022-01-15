@@ -116,12 +116,15 @@ class GenerateMatchCommand extends BaseCommand
         let gameIdToGameInfoMap = new Map();
         for (let game of allGames)
         {
-            console.log(`${game.gameDescription} (${game.minTeamSize * game.minTeamCount} - ${game.maxTeamSize * game.maxTeamCount} Players)`);
-            gameIdToGameInfoMap.set(game.gameId, game);
+            console.log(game);
+
+            let playerCountString = Number(game.minPlayerCount) != Number(game.maxPlayerCount) ? `${game.minPlayerCount} - ${game.maxPlayerCount} Players` : `${game.maxPlayerCount} Players`;
+            gameIdToGameInfoMap.set(`${game.gameId}`, game);
+
             options.push({
-                label: game.gameName,
-                value: game.gameId,
-                description: `${game.gameDescription} (${game.minTeamSize * game.minTeamCount} - ${game.maxTeamSize * game.maxTeamCount} Players)`
+                label: `${game.gameName} (${playerCountString})`,
+                value: `${game.gameId}`,
+                description: `${game.gameDescription}`
             });
         }
         applicationCache.set(ALL_GAMES_CACHE_KEY, gameIdToGameInfoMap);
@@ -145,6 +148,7 @@ class GenerateMatchCommand extends BaseCommand
 
     async generateMatchData(receivedCommandArgs, message, targetGameData)
     {
+        console.log(targetGameData);
         let messagePromises = [];
 
         const generateMap = new generateMapModule[COMMAND_CLASS_KEY]();
@@ -171,22 +175,22 @@ class GenerateMatchCommand extends BaseCommand
         matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
 
         // Check for nick and lance
-        for (let generatedTeam of generatedMatch.teams)
-        {
-            let nickPresent = false, lancePresent = false;
-            for (let generatedPlayer of generatedTeam.teamMembers)
-            {
-                if (generatedPlayer.teamMemberName === 'Lance')
-                    lancePresent = true
-                if (generatedPlayer.teamMemberName === 'Nick')
-                    nickPresent = true
-            }
+        // for (let generatedTeam of generatedMatch.teams)
+        // {
+        //     let nickPresent = false, lancePresent = false;
+        //     for (let generatedPlayer of generatedTeam.teamMembers)
+        //     {
+        //         if (generatedPlayer.teamMemberName === 'Lance')
+        //             lancePresent = true
+        //         if (generatedPlayer.teamMemberName === 'Nick')
+        //             nickPresent = true
+        //     }
 
-            if (nickPresent && lancePresent)
-            {
-                matchDisplayEmbed.addField("⚠ WARNING ⚠", "NICK AND LANCE ARE ON THE SAME TEAM, REGENERATION RECOMMENDED", false);
-            }
-        }
+        //     if (nickPresent && lancePresent)
+        //     {
+        //         matchDisplayEmbed.addField("⚠ WARNING ⚠", "NICK AND LANCE ARE ON THE SAME TEAM, REGENERATION RECOMMENDED", false);
+        //     }
+        // }
 
 
         matchDisplayEmbed.setThumbnail(`${generatedMatch.game.gameLogoURL}`);

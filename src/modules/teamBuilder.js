@@ -15,7 +15,7 @@ async function run(playersToUse, targetGameData)
     executeInitialPlacings(unsortedTeamMembers, match);
     executeTeamBalance(match);
 
-    console.log("\n===========Match Successfully Generated===========\n")
+    console.log("\n===========Match Generation Completed===========\n")
     return match;
 }
 
@@ -35,16 +35,17 @@ function constructTeamMembers(rawPlayerServerData)
     for (let playerData of rawPlayerServerData)
     {
         let teamMemberRatings = [];
-        let primaryRoleIndex = 0, currentIndex = 0;
+        let primaryRoleIndex = -1, currentIndex = 0;
         for (let roleRating of playerData.roleRatings)
         {
             if (roleRating.isPrimary)
             {
-                console.log(`Setting ${playerData.name}'s initial primary role index to ${currentIndex} (${roleRating.roleName})`);
+                console.log(`Setting ${playerData.name}'s primary role to ${roleRating.role} (Index: ${currentIndex})`);
                 primaryRoleIndex = currentIndex;
             }
 
             teamMemberRatings.push(new TeamMemberRoleRating(
+                roleRating.id,
                 roleRating.role,
                 roleRating.value,
                 roleRating.isPrimary
@@ -66,18 +67,21 @@ function constructTeamMembers(rawPlayerServerData)
 
 function constructMatchObject(playerCount, targetGameData)
 {
-    console.log("Constructing Base Match Object...");
+    console.log("\nConstructing Base Match Object...");
 
-    let match = new Match(targetGameData.maxTeamCount);
+    let match = new Match(targetGameData.gameTeamConfigs.length);
     match.game = targetGameData;
 
-    let amountOfTeamsNeeded = Math.max(targetGameData.minTeamCount, Math.ceil(playerCount / targetGameData.maxTeamSize))
-    for (let i = 0; i < amountOfTeamsNeeded; i++)
+    let accumulatedMaxPlayerCount = 0;
+    for (let teamConfig of targetGameData.gameTeamConfigs)
     {
-        match.addTeam(new Team(
-            `${i + 1}`,
-            targetGameData.maxTeamSize
-        ));
+        if (teamConfig.isTeamRequired || accumulatedMaxPlayerCount < playerCount)
+        {
+            accumulatedMaxPlayerCount += teamConfig.maxteamSize;
+
+            console.log(`Creating '${teamConfig.teamName}' team`);
+            match.addTeam(new Team(match, teamConfig));
+        }
     }
 
     return match;
@@ -92,10 +96,13 @@ function executeInitialPlacings(unsortedTeamMembers, match)
         let targetMember = unsortedTeamMembers[targetMemberIndex];
         let weakestTeamIndex = match.getWeakestTeamIndex(true);
 
-        console.log(`Adding ${targetMember.teamMemberName} to Team ${weakestTeamIndex}`);
+        console.log(`Adding ${targetMember.teamMemberName} to '${match.teams[weakestTeamIndex].teamName}' (Index: ${weakestTeamIndex})`);
 
         match.addTeamMember(targetMember, weakestTeamIndex);
         unsortedTeamMembers.splice(targetMemberIndex, 1);
+
+        // Add Blank Space in Log after each player is placed
+        console.log('');
     }
 }
 
@@ -103,7 +110,7 @@ function executeTeamBalance(match)
 {
     console.log("\n===========Starting Team Balance===========")
 
-    let balanceThreshold = 200; //TODO: Replace this hard coded value with one from the server
+    let balanceThreshold = 50; //TODO: Replace this hard coded value with one from the server
     if (match.getBalanceThreshold() <= balanceThreshold)
     {
         console.log("Skipping Balance as initial placements are already balanced");
@@ -127,7 +134,7 @@ function executeTeamBalance(match)
 
         let targetRoleIndex = targetPlayer.getNextLowestRoleIndex()
 
-        console.log(`Setting ${targetPlayer.teamMemberName} from ${targetPlayer.memberRoleRatings[targetPlayer.selectedMemberRoleIndex].roleName} to ${targetPlayer.memberRoleRatings[targetRoleIndex].roleName}`);
+        console.log(`${targetPlayer.teamMemberName}: ${targetPlayer.memberRoleRatings[targetPlayer.selectedMemberRoleIndex].roleName} -> ${targetPlayer.memberRoleRatings[targetRoleIndex].roleName}`);
         targetPlayer.updateTeamMemberRole(targetRoleIndex);
     }
     while (membersThatCanBeBalanced.length > 0 && match.getBalanceThreshold() > balanceThreshold);

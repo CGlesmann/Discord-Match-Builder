@@ -1,71 +1,111 @@
-async function moveDiscordMembersToTeamVoiceChannels(generatedTeamRoster, message)
-{
-    let allTeamVoiceChannels = await fetchTeamVoiceChannels(message);
-    if (!allTeamVoiceChannels) { return; }
+// const { GENERATED_TEAMS_CACHE_KEY } = require("../utils/Constants.js");
 
-    let discordUserToTeamIndexMap = generateMemberIdToTeamIndexMap(generatedTeamRoster);
-    let targetGuildMembers = await fetchAllTargetGuildMembers(
-        message,
-        Array.from(discordUserToTeamIndexMap, ([userId, teamIndex]) => userId)
-    );
+// async function moveDiscordMembersToTeamVoiceChannels(targetGeneratedMatch, message, applicationCache)
+// {
+//     // let allTeamVoiceChannels = await fetchTeamVoiceChannels(message);
+//     allTeamVoiceChannels = await createTempGameVoiceChannels(targetGeneratedMatch, message, applicationCache);
+//     if (!allTeamVoiceChannels) { return; }
 
-    executeVoiceChatMove(targetGuildMembers, discordUserToTeamIndexMap, allTeamVoiceChannels);
-}
+//     // let discordUserToTeamIndexMap = generateMemberIdToTeamIndexMap(targetGeneratedMatch.teams);
+//     // let targetGuildMembers = await fetchAllTargetGuildMembers(
+//     //     message,
+//     //     Array.from(discordUserToTeamIndexMap, ([userId, teamIndex]) => userId)
+//     // );
 
-async function fetchTeamVoiceChannels(message)
-{
-    let allChannelInfo = await message.guild.channels.fetch();
-    let filteredChannels = allChannelInfo.filter(channel => channel.type === 'GUILD_VOICE' && channel.name.includes("Team"))
-        .sort((a, b) => a.name.split(' ')[1] - b.name.split(' ')[1]);
+//     executeVoiceChatMove(targetGuildMembers, discordUserToTeamIndexMap, allTeamVoiceChannels);
+// }
 
-    if (filteredChannels && filteredChannels.size > 0)
-    {
-        console.log(`Found ${filteredChannels.size} team channels`);
-        return Array.from(filteredChannels, ([channelId, channelObject]) => channelObject);
-    }
+// async function createTempGameVoiceChannels(targetGeneratedMatch, message, applicationCache)
+// {
+//     let discordIdToVoiceChannelMap = new Map();
+//     let createChannelPromises = [];
+//     // let allNewChannelIds = [];
 
-    console.log("Couldn't find team voice channels");
-    return null;
-}
+//     // Create the Category Channel to house the VCs
+//     const parentCategoryChannel = await message.guild.channels.create(`${targetGeneratedMatch.game.gameName} Match`, {
+//         type: 'GUILD_CATEGORY'
+//     });
 
-function generateMemberIdToTeamIndexMap(generatedTeamRoster)
-{
-    let discordUserToTeamIndexMap = new Map();
-    let teamIndex = 0;
+//     // Create one VC for each game team
+//     // allNewChannelIds.push(parentCategoryChannel.id);
+//     for (let generatedTeam of targetGeneratedMatch.teams)
+//     {
+//         createChannelPromises.push(message.guild.channels.create(`${generatedTeam.teamName}`, {
+//             type: 'GUILD_VOICE',
+//             parent: parentCategoryChannel
+//         }));
+//     }
 
-    for (let generatedTeam of generatedTeamRoster)
-    {
-        for (let generatedMember of generatedTeam.teamMembers)
-        {
-            if (!generatedMember.discordId) { continue; }
+//     let newChildChannels = await Promise.all(createChannelPromises);
 
-            discordUserToTeamIndexMap.set(generatedMember.discordId, teamIndex);
-        }
-        teamIndex++;
-    }
+//     // newChildChannels.forEach(childChannel =>
+//     // {
+//     //     allNewChannelIds.push(childChannel.id);
+//     // });
 
-    return discordUserToTeamIndexMap;
-}
+//     return [parentCategoryChannel, ...newChildChannels];
+// }
 
-async function fetchAllTargetGuildMembers(message, targetGuildMemberIdArray)
-{
-    return await message.guild.members.fetch({ user: targetGuildMemberIdArray });
-}
+// // function generateMemberIdToTeamIndexMap(generatedTeamRoster)
+// // {
+// //     let discordUserToTeamIndexMap = new Map();
+// //     let teamIndex = 0;
 
-function executeVoiceChatMove(targetGuildMembers, guildMemberIdToTeamIndexMap, allTeamVoiceChannels)
-{
-    for (let guildMemberFetchResult of targetGuildMembers)
-    {
-        let guildMemberId = guildMemberFetchResult[0];
-        let guildMemberObject = guildMemberFetchResult[1];
+// //     for (let generatedTeam of generatedTeamRoster)
+// //     {
+// //         for (let generatedMember of generatedTeam.teamMembers)
+// //         {
+// //             if (!generatedMember.discordId) { continue; }
 
-        if (!guildMemberObject.voice || !guildMemberObject.voice.channelId) { continue; }
+// //             discordUserToTeamIndexMap.set(generatedMember.discordId, teamIndex);
+// //         }
+// //         teamIndex++;
+// //     }
 
-        let targetTeamChannelIndex = guildMemberIdToTeamIndexMap.get(guildMemberId);
+// //     return discordUserToTeamIndexMap;
+// // }
 
-        console.log(`Queueing ${guildMemberObject.user.username} for channel "Team ${targetTeamChannelIndex + 1}"`);
-        guildMemberObject.voice.setChannel(allTeamVoiceChannels[targetTeamChannelIndex]);
-    }
-}
+// // async function fetchAllTargetGuildMembers(message, targetGuildMemberIdArray)
+// // {
+// //     return await message.guild.members.fetch({ user: targetGuildMemberIdArray });
+// // }
 
-module.exports = { moveDiscordMembersToTeamVoiceChannels };
+// // function executeVoiceChatMove(targetGuildMembers, guildMemberIdToTeamIndexMap, allTeamVoiceChannels)
+// // {
+// //     console.log(allTeamVoiceChannels);
+// //     for (let guildMemberFetchResult of targetGuildMembers)
+// //     {
+// //         let guildMemberId = guildMemberFetchResult[0];
+// //         let guildMemberObject = guildMemberFetchResult[1];
+
+// //         // Ensure the user is in voice chat already
+// //         if (!guildMemberObject.voice || !guildMemberObject.voice.channelId) { continue; }
+
+// //         let targetTeamChannelIndex = guildMemberIdToTeamIndexMap.get(guildMemberId);
+
+// //         console.log(`Queueing ${guildMemberObject.user.username} for channel "Team ${targetTeamChannelIndex + 1}"`);
+// //         console.log(allTeamVoiceChannels[targetTeamChannelIndex]);
+// //         guildMemberObject.voice.setChannel(allTeamVoiceChannels[targetTeamChannelIndex]);
+// //     }
+// // }
+
+// function executeVoiceChatMove(targetGuildMembers, guildMemberIdToTeamIndexMap, allTeamVoiceChannels)
+// {
+//     console.log(allTeamVoiceChannels);
+//     for (let guildMemberFetchResult of targetGuildMembers)
+//     {
+//         let guildMemberId = guildMemberFetchResult[0];
+//         let guildMemberObject = guildMemberFetchResult[1];
+
+//         // Ensure the user is in voice chat already
+//         if (!guildMemberObject.voice || !guildMemberObject.voice.channelId) { continue; }
+
+//         let targetTeamChannelIndex = guildMemberIdToTeamIndexMap.get(guildMemberId);
+
+//         console.log(`Queueing ${guildMemberObject.user.username} for channel "Team ${targetTeamChannelIndex + 1}"`);
+//         console.log(allTeamVoiceChannels[targetTeamChannelIndex]);
+//         guildMemberObject.voice.setChannel(allTeamVoiceChannels[targetTeamChannelIndex]);
+//     }
+// }
+
+// module.exports = { moveDiscordMembersToTeamVoiceChannels };
