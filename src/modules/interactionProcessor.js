@@ -63,7 +63,8 @@ async function processInteraction(interaction, applicationCache)
             )
         }
 
-        moveDiscordMembersToTeamVoiceChannels(targetGeneratedMatch.teams, interaction.message);
+        //moveDiscordMembersToTeamVoiceChannels(targetGeneratedMatch, interaction.message, applicationCache);
+        targetGeneratedMatch.startMatch(interaction.message.guild);
         interaction.update({ embeds: [newEmbed], components: [actionRow] });
         return;
     }
@@ -73,9 +74,13 @@ async function processInteraction(interaction, applicationCache)
         let [idName, winningTeamIndex, messageId] = interaction.customId.split(":");
 
         let generatedTeamObject = applicationCache.get(GENERATED_TEAMS_CACHE_KEY).get(messageId);
+        let generatedMatchObject = generatedTeamObject.generatedTeams[generatedTeamObject.currentDisplayedTeamIndex];
+
+        generatedMatchObject.endMatch();
+
         let matchResult = contructMatchResultWrapper(
             winningTeamIndex - 1,
-            generatedTeamObject.generatedTeams[generatedTeamObject.currentDisplayedTeamIndex]
+            generatedMatchObject
         );
 
         newEmbed.title = "Match Finished - Starcraft 2";
@@ -93,9 +98,9 @@ async function processInteraction(interaction, applicationCache)
 
             for (let playerDisplay of playerDisplays)
             {
-                let changeSign = Math.sign(teamResult.roleRatingUpdates[currentDisplayIndex].ratingChange) === 1 ? "+" : "";
+                let changeSign = Math.sign(teamResult.roleRatingUpdates[currentDisplayIndex].role_rating_change) === 1 ? "+" : "";
 
-                newPlayerDisplays.push(`${playerDisplay} : (${changeSign}${teamResult.roleRatingUpdates[currentDisplayIndex].ratingChange})`)
+                newPlayerDisplays.push(`${playerDisplay} : (${changeSign}${teamResult.roleRatingUpdates[currentDisplayIndex].role_rating_change})`)
                 currentDisplayIndex += 1;
             }
 

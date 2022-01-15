@@ -7,11 +7,10 @@ const { checkUserMessageForCommand } = require("./modules/commandParser.js");
 const { processInteraction } = require("./modules/interactionProcessor.js");
 
 /*
-    stdTTL: 30 minutes stored in seconds
-    checkPeriod: check for deletion every minute
+    stdTTL: 0 (Infinity)
     useClones: everything will be retrieved by reference
 */
-const applicationCache = new NodeCache({ stdTTL: (60 * 60), checkperiod: 60, useClones: false });
+const applicationCache = new NodeCache({ stdTTL: 0, useClones: false });
 const botClient = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
