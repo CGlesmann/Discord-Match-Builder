@@ -17,5 +17,8 @@
     "jsforce": "^1.10.1",
     "node-cache": "^5.1.2",
     "starcraft2-api": "^2.0.0"
+  },
+  "engines": {
+    "node": "16.x"
   }
 }
