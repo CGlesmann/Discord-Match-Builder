@@ -1,5 +1,4 @@
 const { MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
-const { moveDiscordMembersToTeamVoiceChannels } = require("./discordVoiceChannelManager.js");
 const { postMatchResult } = require("./salesforceDataReader.js");
 const { contructMatchResultWrapper } = require("./eloRatingManager.js");
 

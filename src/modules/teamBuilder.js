@@ -1,4 +1,7 @@
-const { Team, TeamMember, TeamMemberRoleRating, Match } = require("./matchBuilderClasses.js");
+const { Team } = require('../classes/matchBuilderWrappers/Team');
+const { TeamMember } = require('../classes/matchBuilderWrappers/TeamMember');
+const { TeamMemberRoleRating } = require('../classes/matchBuilderWrappers/TeamMemberRoleRating');
+const { Match } = require('../classes/matchBuilderWrappers/Match');
 
 async function run(playersToUse, targetGameData)
 {

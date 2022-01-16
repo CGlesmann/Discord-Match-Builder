@@ -1,5 +1,5 @@
 const { BaseCommand } = require("../commandStructure/baseCommand.js");
-const { GameMap } = require("../modules/matchBuilderClasses.js");
+const { GameMap } = require("../classes/matchBuilderWrappers/GameMap");
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
 const { getAllApprovedMaps } = require("../modules/salesforceDataReader.js");
 
