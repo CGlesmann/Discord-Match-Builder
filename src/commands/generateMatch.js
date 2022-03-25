@@ -1,154 +1,112 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { BaseCommand } = require("./base/baseCommand.js");
 const { MessageSelectMenu, MessageEmbed, MessageActionRow, MessageButton } = require("discord.js");
-const { COMMAND_CLASS_KEY } = require("../modules/commandParser.js");
+const { COMMAND_CLASS_KEY } = require("../managers/commandManager.js");
 
 const generateMapModule = require("./generateMap.js");
 const generateTeamModule = require("./generateTeams.js");
 
-const { moveDiscordMembersToTeamVoiceChannels } = require("../modules/discordVoiceChannelManager.js");
+const { ApplicationCacheManager } = require('../managers/applicationCacheManager.js');
+const { SelectGameScreen } = require("../ui/screens/SelectGameScreen");
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
-const { getAllGames } = require("../modules/salesforceDataReader.js");
 
-const { GENERATED_TEAMS_CACHE_KEY, ALL_GAMES_CACHE_KEY } = require("../utils/Constants.js");
+const { APPLICATION_CACHE_KEYS } = require("../utils/Constants.js");
+const { MatchGenerationRequest } = require("../classes/applicationCacheWrappers/MatchGenerationRequest.js");
+const { MatchGenerationRequestList } = require("../classes/applicationCacheWrappers/MatchGenerationRequestList.js");
 
 class GenerateMatchCommand extends BaseCommand
 {
+    selectGameScreenInstance;
+
     constructor()
     {
         super();
 
         this.COMMAND_NAME = "generateMatch";
-        this.COMMAND_ARGS = {
-            // p: {
-            //     helpText: "A comma seperated list of human players to use",
-            //     validateErrorText: "Enter a comma seperated list of player names (must match the name in the config)",
-            //     validate: function (agrumentStringValue)
-            //     {
-            //         let argumentStringArray = agrumentStringValue.split(",");
-            //         let amountOfValidNumbers = 0;
-
-            //         argumentStringArray.forEach((value) =>
-            //         {
-            //             if (value)
-            //             {
-            //                 amountOfValidNumbers++;
-            //             }
-            //         })
-
-            //         return (
-            //             argumentStringArray &&
-            //             argumentStringArray.length > 0 &&
-            //             amountOfValidNumbers === argumentStringArray.length
-            //         );
-            //     }
-            // }
-        }
+        this.COMMAND_ARGS = {}
     }
 
-    async run(receivedCommandArgs, message, applicationCache)
+    async run(receivedCommandArgs, message)
     {
         if (!message.mentions.users || message.mentions.users.size === 0)
         {
             throw { message: "Please Tag at least 1 User" };
         }
 
-        let lastGeneratedMatches = applicationCache.get(GENERATED_TEAMS_CACHE_KEY)?.get(message.id);
-        if (lastGeneratedMatches && lastGeneratedMatches.generatedTeams)
-        {
-            let targetGameData = lastGeneratedMatches.generatedTeams[0].game;
+        this.createMatchGenerationRequest(receivedCommandArgs, message);
+        return await this.constructGameSelectScreen(message);
 
-            let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
+        // let lastGeneratedMatches = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.GENERATED_TEAMS)?.get(message.id);
+        // if (lastGeneratedMatches && lastGeneratedMatches.generatedTeams)
+        // {
+        //     let targetGameData = lastGeneratedMatches.generatedTeams[0].game;
 
-            this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
-            let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+        //     let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
 
-            return {
-                embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
-                components: [this.generateVoiceChatActionRow(message.id)]
-            }
-        }
+        //     this.addGeneratedTeamsToCache(message.id, generatedMatch);
+        //     let currentMatchCount = this.getMatchCountByMessageId(message.id);
 
-        let gameSelectScreen = await this.constructGameSelectScreen(message, applicationCache);
-        if (!gameSelectScreen) { return; }
+        //     return {
+        //         embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
+        //         components: [this.generateVoiceChatActionRow(message.id)]
+        //     }
+        // }
 
-        let filter = (interaction) => interaction.isSelectMenu() && interaction.customId === 'SelectGame';
-        let collector = message.channel.createMessageComponentCollector({ filter, max: "1" })
+        // let gameSelectScreen = await this.constructGameSelectScreen(message);
+        // if (!gameSelectScreen) { return; }
 
-        collector.on('collect', async (interaction) =>
-        {
-            let targetGameId = interaction.values[0];
-            let targetGameData = applicationCache.get(ALL_GAMES_CACHE_KEY).get(targetGameId);
+        // let filter = (interaction) => interaction.isSelectMenu() && interaction.customId === 'SelectGame';
+        // let collector = message.channel.createMessageComponentCollector({ filter, max: "1" })
 
-            let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
+        // collector.on('collect', async (interaction) =>
+        // {
+        //     let targetGameId = interaction.values[0];
+        //     let targetGameData = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.ALL_GAME_DATA).get(targetGameId);
 
-            this.addGeneratedTeamsToCache(applicationCache, message.id, generatedMatch);
-            let currentMatchCount = this.getMatchCountByMessageId(applicationCache, message.id);
+        //     let { generatedMatch } = await this.generateMatchData(receivedCommandArgs, message, targetGameData);
 
-            interaction.update({
-                embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
-                components: [this.generateVoiceChatActionRow(message.id)]
-            });
-        });
+        //     this.addGeneratedTeamsToCache(message.id, generatedMatch);
+        //     let currentMatchCount = this.getMatchCountByMessageId(message.id);
 
-        return gameSelectScreen;
+        //     interaction.update({
+        //         embeds: [this.generateMatchDisplayEmbed(currentMatchCount, generatedMatch)],
+        //         components: [this.generateVoiceChatActionRow(message.id)]
+        //     });
+        // });
+
+        // return gameSelectScreen;
     }
 
-    async constructGameSelectScreen(message, applicationCache)
+    createMatchGenerationRequest(receivedCommandArgs, message)
     {
-        let requiredPlayerCount = message.mentions.users.size;
-        let allGames = await getAllGames(requiredPlayerCount);
+        const newMatchGenerationRequest = new MatchGenerationRequest(receivedCommandArgs, message);
 
-        if (!allGames || allGames.length === 0)
+        let matchGenerationList = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.MATCH_GENERATION_REQUESTS);
+        if (!matchGenerationList)
         {
-            const testEmbed = new MessageEmbed();
-            testEmbed.setTitle('No Games');
-            testEmbed.setDescription(`No games were found on the server that can be played with ${requiredPlayerCount} player(s)`);
+            matchGenerationList = new MatchGenerationRequestList();
 
-            message.channel.send({
-                embeds: [testEmbed]
-            });
+            matchGenerationList.addMatchGenerationRequest(message.id, newMatchGenerationRequest);
+            ApplicationCacheManager.addDataToCache(
+                APPLICATION_CACHE_KEYS.MATCH_GENERATION_REQUESTS,
+                matchGenerationList,
+                0
+            );
 
-            return null;
+            return;
         }
 
-        let options = [];
+        matchGenerationList.addMatchGenerationRequest(newMatchGenerationRequest);
+        return;
+    }
 
-        let gameIdToGameInfoMap = new Map();
-        for (let game of allGames)
-        {
-            console.log(game);
-
-            let playerCountString = Number(game.minPlayerCount) != Number(game.maxPlayerCount) ? `${game.minPlayerCount} - ${game.maxPlayerCount} Players` : `${game.maxPlayerCount} Players`;
-            gameIdToGameInfoMap.set(`${game.gameId}`, game);
-
-            options.push({
-                label: `${game.gameName} (${playerCountString})`,
-                value: `${game.gameId}`,
-                description: `${game.gameDescription}`
-            });
-        }
-        applicationCache.set(ALL_GAMES_CACHE_KEY, gameIdToGameInfoMap);
-
-        const testMultiSelectMenu = new MessageActionRow().addComponents(
-            new MessageSelectMenu()
-                .setCustomId('SelectGame')
-                .setPlaceholder('Select a Game')
-                .addOptions(options)
-        );
-
-        const testEmbed = new MessageEmbed();
-        testEmbed.setTitle('Select Game');
-        testEmbed.setDescription(`${allGames.length} games were found. Please select a game in order to generate a match.`);
-
-        return {
-            embeds: [testEmbed],
-            components: [testMultiSelectMenu]
-        };
+    async constructGameSelectScreen(message)
+    {
+        this.selectGameScreenInstance = new SelectGameScreen();
+        return await this.selectGameScreenInstance.getSelectGameScreenDisplay(message);
     }
 
     async generateMatchData(receivedCommandArgs, message, targetGameData)
     {
-        console.log(targetGameData);
         let messagePromises = [];
 
         const generateMap = new generateMapModule[COMMAND_CLASS_KEY]();
@@ -157,128 +115,102 @@ class GenerateMatchCommand extends BaseCommand
         const generateTeams = new generateTeamModule[COMMAND_CLASS_KEY]();
         messagePromises.push(generateTeams.getTeamRosterObject(message, targetGameData));
 
-        let allGeneratedObjects = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
+        let [generatedMap, generatedMatch] = await Promise.all(messagePromises); // Each command returns their own array, combine the two arrays into one
 
-        allGeneratedObjects[1].setMap(allGeneratedObjects[0]);
+        generatedMatch.setMap(generatedMap);
         return {
-            generatedMatch: allGeneratedObjects[1]
+            generatedMatch: generatedMatch
         };
     }
 
-    generateMatchDisplayEmbed(currentMatchCount, generatedMatch)
-    {
-        const matchDisplayEmbed = constructEmbeddedDiscordMessage([{
-            title: `(${currentMatchCount}/${currentMatchCount}) New Match - ${generatedMatch.game.gameName}`,
-            description: "Waiting for the match to begin... Select 'Start Game' to send all the players to their respective voice chats. Alternatively, select \"Generate Another Set\" to create additional team options"
-        }])[0];
+    // generateMatchDisplayEmbed(currentMatchCount, generatedMatch)
+    // {
+    //     const matchDisplayEmbed = constructEmbeddedDiscordMessage([{
+    //         title: `(${currentMatchCount}/${currentMatchCount}) New Match - ${generatedMatch.game.gameName}`,
+    //         description: "Waiting for the match to begin... Select 'Start Game' to send all the players to their respective voice chats. Alternatively, select \"Generate Another Set\" to create additional team options"
+    //     }])[0];
 
-        matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
+    //     matchDisplayEmbed.addFields(generatedMatch.getMatchDisplay());
+    //     matchDisplayEmbed.setThumbnail(`${generatedMatch.game.gameLogoURL}`);
 
-        // Check for nick and lance
-        // for (let generatedTeam of generatedMatch.teams)
-        // {
-        //     let nickPresent = false, lancePresent = false;
-        //     for (let generatedPlayer of generatedTeam.teamMembers)
-        //     {
-        //         if (generatedPlayer.teamMemberName === 'Lance')
-        //             lancePresent = true
-        //         if (generatedPlayer.teamMemberName === 'Nick')
-        //             nickPresent = true
-        //     }
+    //     return matchDisplayEmbed;
+    // }
 
-        //     if (nickPresent && lancePresent)
-        //     {
-        //         matchDisplayEmbed.addField("⚠ WARNING ⚠", "NICK AND LANCE ARE ON THE SAME TEAM, REGENERATION RECOMMENDED", false);
-        //     }
-        // }
+    // generateVoiceChatActionRow(messageId)
+    // {
+    //     const actionRow = new MessageActionRow()
+    //         .addComponents(new MessageButton()
+    //             .setCustomId('ScrollTeamViewLeft:' + messageId)
+    //             .setLabel('◀')
+    //             .setStyle("PRIMARY")
+    //             .setDisabled(true)
+    //         ).addComponents(new MessageButton()
+    //             .setCustomId('RegenerateTeams:' + messageId)
+    //             .setLabel('Generate Another Set')
+    //             .setStyle("PRIMARY")
+    //         ).addComponents(new MessageButton()
+    //             .setCustomId('ScrollTeamViewRight:' + messageId)
+    //             .setLabel('▶')
+    //             .setStyle("PRIMARY")
+    //             .setDisabled(true)
+    //         ).addComponents(new MessageButton()
+    //             .setCustomId('ConfigureVoiceChat:' + messageId)
+    //             .setLabel('Start Game')
+    //             .setStyle("SUCCESS")
+    //         );
 
-
-        matchDisplayEmbed.setThumbnail(`${generatedMatch.game.gameLogoURL}`);
-
-        return matchDisplayEmbed;
-    }
-
-    generateVoiceChatActionRow(messageId)
-    {
-        const actionRow = new MessageActionRow()
-            .addComponents(new MessageButton()
-                .setCustomId('ScrollTeamViewLeft:' + messageId)
-                .setLabel('◀')
-                .setStyle("PRIMARY")
-                .setDisabled(true)
-            ).addComponents(new MessageButton()
-                .setCustomId('RegenerateTeams:' + messageId)
-                .setLabel('Generate Another Set')
-                .setStyle("PRIMARY")
-            ).addComponents(new MessageButton()
-                .setCustomId('ScrollTeamViewRight:' + messageId)
-                .setLabel('▶')
-                .setStyle("PRIMARY")
-                .setDisabled(true)
-            ).addComponents(new MessageButton()
-                .setCustomId('ConfigureVoiceChat:' + messageId)
-                .setLabel('Start Game')
-                .setStyle("SUCCESS")
-            );
-
-        return actionRow;
-    }
+    //     return actionRow;
+    // }
 
     getPlayerCount(message)
     {
         return message.mentions.users.size;
-        // let commandKeys = Object.keys(this.COMMAND_ARGS);
-        // return this.getCommandArgument(commandKeys[0], receivedCommandArgs, (argumentString) =>
-        // {
-        //     let stringArray = argumentString.split(",");
-        //     return stringArray.length;
-        // });
     }
 
-    getMatchCountByMessageId(applicationCache, messageId)
-    {
-        let currentGeneratedTeamsMap = applicationCache.get(GENERATED_TEAMS_CACHE_KEY);
-        if (currentGeneratedTeamsMap === undefined) { return 0; }
+    // getMatchCountByMessageId(messageId)
+    // {
+    //     let currentGeneratedTeamsMap = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.GENERATED_TEAMS);
+    //     if (currentGeneratedTeamsMap === undefined) { return 0; }
 
-        let currentTeamsByMessageId = currentGeneratedTeamsMap.get(messageId);
-        if (currentTeamsByMessageId === undefined || !currentTeamsByMessageId.generatedTeams.length) { return 0; }
+    //     let currentTeamsByMessageId = currentGeneratedTeamsMap.get(messageId);
+    //     if (currentTeamsByMessageId === undefined || !currentTeamsByMessageId.generatedTeams.length) { return 0; }
 
-        return currentTeamsByMessageId.generatedTeams.length;
-    }
+    //     return currentTeamsByMessageId.generatedTeams.length;
+    // }
 
-    addGeneratedTeamsToCache(applicationCache, messageId, generatedTeams)
-    {
-        let currentGeneratedTeamsMap = applicationCache.get(GENERATED_TEAMS_CACHE_KEY);
-        if (currentGeneratedTeamsMap === undefined)
-        {
-            let newGeneratedTeamsMap = new Map();
+    // addGeneratedTeamsToCache(messageId, generatedTeams)
+    // {
+    //     let currentGeneratedTeamsMap = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.GENERATED_TEAMS);
+    //     if (!currentGeneratedTeamsMap)
+    //     {
+    //         let newGeneratedTeamsMap = new Map();
 
-            newGeneratedTeamsMap.set(messageId, {
-                currentDisplayedTeamIndex: 0,
-                generatedTeams: [generatedTeams],
-            });
-            applicationCache.set(GENERATED_TEAMS_CACHE_KEY, newGeneratedTeamsMap);
+    //         newGeneratedTeamsMap.set(messageId, {
+    //             currentDisplayedTeamIndex: 0,
+    //             generatedTeams: [generatedTeams],
+    //         });
 
-            return;
-        }
+    //         ApplicationCacheManager.addDataToCache(APPLICATION_CACHE_KEYS.GENERATED_TEAMS, newGeneratedTeamsMap);
+    //         return;
+    //     }
 
-        let generatedTeamObject = currentGeneratedTeamsMap.get(messageId);
-        if (generatedTeamObject === undefined)
-        {
-            let newGeneratedTeamObject = {
-                currentDisplayedTeamIndex: 0,
-                generatedTeams: [generatedTeams]
-            };
-            currentGeneratedTeamsMap.set(messageId, newGeneratedTeamObject);
-            return;
-        }
+    //     let generatedTeamObject = currentGeneratedTeamsMap.get(messageId);
+    //     if (!generatedTeamObject)
+    //     {
+    //         let newGeneratedTeamObject = {
+    //             currentDisplayedTeamIndex: 0,
+    //             generatedTeams: [generatedTeams]
+    //         };
+    //         currentGeneratedTeamsMap.set(messageId, newGeneratedTeamObject);
+    //         return;
+    //     }
 
-        let generatedTeamsArray = generatedTeamObject.generatedTeams;
-        generatedTeamsArray.push(generatedTeams);
-        generatedTeamObject.currentDisplayedTeamIndex = generatedTeamsArray.length - 1;
+    //     let generatedTeamsArray = generatedTeamObject.generatedTeams;
+    //     generatedTeamsArray.push(generatedTeams);
+    //     generatedTeamObject.currentDisplayedTeamIndex = generatedTeamsArray.length - 1;
 
-        return;
-    }
+    //     return;
+    // }
 }
 
 module.exports = GenerateMatchCommand.getExportObject();

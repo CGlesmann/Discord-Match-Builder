@@ -1,4 +1,4 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { BaseCommand } = require("./baseCommand.js");
 
 // Rename the <NewCommandNameHere> to the Name of the Command Class
 class NewCommandNameHere extends BaseCommand
@@ -22,7 +22,7 @@ class NewCommandNameHere extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs, message, applicationCache)
+    async run(receivedCommandArgs, message)
     {
         // Place the logic to be ran when the command is executed here
         // receivedCommandArgs is a map in which the key is the argument and the value is the string value passed in for each argument

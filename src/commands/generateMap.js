@@ -1,5 +1,6 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { BaseCommand } = require("./base/baseCommand.js");
 const { GameMap } = require("../classes/matchBuilderWrappers/GameMap");
+
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
 const { getAllApprovedMaps } = require("../modules/salesforceDataReader.js");
 
@@ -23,7 +24,7 @@ class GenerateMapCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs, message, applicationCache)
+    async run(receivedCommandArgs, message)
     {
         let commandKeys = Object.keys(this.COMMAND_ARGS);
 

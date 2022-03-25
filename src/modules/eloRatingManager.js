@@ -1,19 +1,18 @@
 const { MatchResult } = require('../classes/matchResultWrappers/MatchResult');
 const { TeamResult } = require('../classes/matchResultWrappers/TeamResult');
+const { MATCH_RESULT_ACTUAL_AMOUNT } = require("../utils/Constants");
 
 // TODO: adapt algorithm to account for more than two teams
 // TODO: fetch kFactor from Server
 function contructMatchResultWrapper(winningTeamIndex, match)
 {
     const K_FACTOR = 32; // Maximum amount to be won/lost
-    const WIN_ACTUAL_AMOUNT = 1;
-    const DRAW_ACTUAL_AMOUNT = 0.5;
-    const LOSE_ACTUAL_AMOUNT = 0;
 
     const matchResult = new MatchResult();
     matchResult.matchMapId = match.map.id;
     matchResult.gameId = match.game.gameId;
     matchResult.winningTeam = match.teams[winningTeamIndex].teamConfigId;
+    matchResult.winningTeamIndex = winningTeamIndex;
 
     let losingTeams = [];
     let winningTeam = match.teams[winningTeamIndex];
@@ -23,7 +22,7 @@ function contructMatchResultWrapper(winningTeamIndex, match)
 
     for (let i = 0; i < match.teams.length; i++)
     {
-        if (i === winningTeamIndex)
+        if (i === Number(winningTeamIndex))
         {
             matchResult.addTeamResult(winningTeamResult);
             continue;
@@ -36,7 +35,7 @@ function contructMatchResultWrapper(winningTeamIndex, match)
         newTeamResult.setResult("Lost");
         newTeamResult.setRatingPoints(Math.round(calculateScoreChange(
             K_FACTOR,
-            LOSE_ACTUAL_AMOUNT,
+            MATCH_RESULT_ACTUAL_AMOUNT.LOST,
             calculateExpectedScore(targetTeam.teamRating, winningTeam.teamRating)
         )));
 
@@ -46,7 +45,7 @@ function contructMatchResultWrapper(winningTeamIndex, match)
     let expectedScore = calculateExpectedScore(winningTeam.teamRating, losingTeams[0].teamRating);
     winningTeamResult.setRatingPoints(Math.round(calculateScoreChange(
         K_FACTOR,
-        WIN_ACTUAL_AMOUNT,
+        MATCH_RESULT_ACTUAL_AMOUNT.WON,
         expectedScore
     )));
 

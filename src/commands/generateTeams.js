@@ -1,4 +1,4 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { BaseCommand } = require("./base/baseCommand.js");
 const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
 const teamBuilder = require("../modules/teamBuilder.js");
 
@@ -44,7 +44,7 @@ class GenerateTeamCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs, message, applicationCache)
+    async run(receivedCommandArgs, message)
     {
         let teamRosterObject = this.getTeamRosterObject(message);
         return constructEmbeddedDiscordMessage(teamRosterObject.getDisplayObjects());

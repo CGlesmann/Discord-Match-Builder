@@ -3,7 +3,9 @@ class MatchResult
     teamResults;
     matchMapId;
     gameId;
+
     winningTeam;
+    winningTeamIndex;
 
     constructor()
     {

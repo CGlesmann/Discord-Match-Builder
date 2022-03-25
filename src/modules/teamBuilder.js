@@ -99,13 +99,10 @@ function executeInitialPlacings(unsortedTeamMembers, match)
         let targetMember = unsortedTeamMembers[targetMemberIndex];
         let weakestTeamIndex = match.getWeakestTeamIndex(true);
 
-        console.log(`Adding ${targetMember.teamMemberName} to '${match.teams[weakestTeamIndex].teamName}' (Index: ${weakestTeamIndex})`);
+        console.log(`Adding ${targetMember.teamMemberName} to '${match.teams[weakestTeamIndex].teamName}' (Index: ${weakestTeamIndex})\n`);
 
         match.addTeamMember(targetMember, weakestTeamIndex);
         unsortedTeamMembers.splice(targetMemberIndex, 1);
-
-        // Add Blank Space in Log after each player is placed
-        console.log('');
     }
 }
 

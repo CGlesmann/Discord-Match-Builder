@@ -1,7 +1,5 @@
-const path = require("path");
-
-const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
-const { COMMAND_CLASS_KEY, COMMAND_PREFIX } = require("../modules/commandParser.js");
+const { constructEmbeddedDiscordMessage } = require("../../modules/discordPrinter.js");
+const { COMMAND_CLASS_KEY, COMMAND_PREFIX } = require("../../managers/commandManager.js");
 
 class BaseCommand
 {
