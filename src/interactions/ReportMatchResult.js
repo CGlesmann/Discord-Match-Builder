@@ -1,7 +1,7 @@
 const { BaseInteraction } = require("./base/BaseInteraction");
 const { ApplicationCacheManager } = require("../managers/applicationCacheManager");
 const { MatchCompletedScreen } = require("../ui/screens/MatchCompletedScreen");
-const { contructMatchResultWrapper } = require("../modules/eloRatingManager");
+const { contructMatchResultWrapper } = require("../managers/eloRatingManager");
 const { APPLICATION_CACHE_KEYS } = require("../utils/Constants");
 
 class ReportMatchResultInteraction extends BaseInteraction
@@ -15,8 +15,7 @@ class ReportMatchResultInteraction extends BaseInteraction
         targetInProgressMatchTracker.match.endMatch();
 
         const generatedMatchResult = contructMatchResultWrapper(winningTeamIndex, targetInProgressMatchTracker.match);
-        console.log(JSON.stringify(generatedMatchResult, null, 4));
-        //postMatchResult(generatedMatchResult);
+        // postMatchResult(generatedMatchResult);
 
         let matchCompletedScreen = new MatchCompletedScreen(targetInProgressMatchTracker, generatedMatchResult);
         interactionObject.update(matchCompletedScreen.getCompletedMatchScreen(interactionObject.message.embeds[0]));

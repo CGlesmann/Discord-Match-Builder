@@ -2,7 +2,7 @@ const { MessageActionRow, MessageSelectMenu, MessageEmbed } = require("discord.j
 const { ApplicationCacheManager } = require("../../managers/applicationCacheManager");
 const { InteractionLabelBuilder, InteractionLabelInfo } = require("../../interactions/base/InteractionLabelBuilder");
 
-const { getAllGames } = require("../../modules/salesforceDataReader.js");
+const { getAllGames } = require("../../interfaces/databaseInterface.js");
 
 const { APPLICATION_CACHE_KEYS } = require("../../utils/Constants.js");
 

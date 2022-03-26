@@ -1,8 +1,8 @@
 const { BaseCommand } = require("./base/baseCommand.js");
 const { GameMap } = require("../classes/matchBuilderWrappers/GameMap");
 
-const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
-const { getAllApprovedMaps } = require("../modules/salesforceDataReader.js");
+const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
+const { getAllApprovedMaps } = require("../interfaces/databaseInterface.js");
 
 class GenerateMapCommand extends BaseCommand
 {

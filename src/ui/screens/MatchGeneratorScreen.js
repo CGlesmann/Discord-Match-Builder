@@ -1,6 +1,6 @@
 const { MessageActionRow, MessageButton } = require("discord.js");
 const { InteractionLabelBuilder, InteractionLabelInfo } = require("../../interactions/base/InteractionLabelBuilder");
-const { constructEmbeddedDiscordMessage } = require("../../modules/discordPrinter");
+const { constructEmbeddedDiscordMessage } = require("../../interfaces/discordInterface");
 const { MATCH_CAROUSEL_SCROLL_DIRECTION } = require("../../utils/Constants");
 
 class MatchGeneratorScreen
