@@ -2,8 +2,7 @@ const { BaseCommand } = require("./base/baseCommand.js");
 const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
 
 const teamBuilder = require("../modules/matchTeamGenerator.js");
-const { MatchTeamGenerator } = require("../modules/matchTeamGeneratorV2");
-// const { run } = require("../../testScripts/calculatePermutationsTest.js");
+const { MatchTeamGenerator } = require("../modules/matchTeamGenerator");
 
 class GenerateTeamCommand extends BaseCommand
 {

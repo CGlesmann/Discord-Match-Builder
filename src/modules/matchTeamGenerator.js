@@ -4,7 +4,7 @@ const { TeamMemberRoleRating } = require("../classes/matchBuilderWrappers/TeamMe
 const { Match } = require("../classes/matchBuilderWrappers/Match");
 
 const { getAllTeamBuildingData, getAllGames } = require("../interfaces/databaseInterface.js");
-const { getGroupModifierMap } = require("../../testScripts/groupModifierTest");
+const { getGroupModifierMap } = require("./teamHistoryModifierBuilder");
 
 class MatchTeamGenerator
 {
