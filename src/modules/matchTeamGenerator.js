@@ -1,157 +1,255 @@
-const { Team } = require('../classes/matchBuilderWrappers/Team');
-const { TeamMember } = require('../classes/matchBuilderWrappers/TeamMember');
-const { TeamMemberRoleRating } = require('../classes/matchBuilderWrappers/TeamMemberRoleRating');
-const { Match } = require('../classes/matchBuilderWrappers/Match');
+const { Team } = require("../classes/matchBuilderWrappers/Team");
+const { TeamMember } = require("../classes/matchBuilderWrappers/TeamMember");
+const { TeamMemberRoleRating } = require("../classes/matchBuilderWrappers/TeamMemberRoleRating");
+const { Match } = require("../classes/matchBuilderWrappers/Match");
 
-async function run(playersToUse, targetGameData)
+const { getAllTeamBuildingData, getAllGames } = require("../interfaces/databaseInterface.js");
+const { getGroupModifierMap } = require("../../testScripts/groupModifierTest");
+
+class MatchTeamGenerator
 {
-    console.log("===========Initializing Team Builder===========");
-    const rawPlayerServerData = await getPlayerDataFromServer(playersToUse, targetGameData.gameId);
-    if (!rawPlayerServerData || rawPlayerServerData.length === 0)
+    async run(targetPlayerIds, targetGameData)
     {
-        throw { message: "No Players were found on the server" };
+        const [playerData, groupKeyToGroupModifier] = await Promise.all([
+            getAllTeamBuildingData(targetPlayerIds.toString(), targetGameData.gameId),
+            getGroupModifierMap()
+        ]);
+
+        const availableTeamMembers = playerData.availableTeamMembers;
+
+        const averagePlayerScore = this.calculateAveragePlayerScore(availableTeamMembers);
+        const allPermutations = this.calculateAllUniquePermutations(availableTeamMembers, targetGameData);
+
+        const viableTeamPermutations = this.sortAndFilterPermutations(allPermutations, averagePlayerScore, groupKeyToGroupModifier, 15);
+
+        let match = this.constructMatchWrapper(targetGameData);
+        let selectedTeams = this.constructMatchTeams(match, availableTeamMembers, viableTeamPermutations);
+
+        this.executeMatchBalance(selectedTeams);
+        return match;
     }
 
-    let unsortedTeamMembers = constructTeamMembers(rawPlayerServerData);
-    let match = constructMatchObject(playersToUse.length, targetGameData);
-
-    executeInitialPlacings(unsortedTeamMembers, match);
-    executeTeamBalance(match);
-
-    console.log("\n===========Match Generation Completed===========\n")
-    return match;
-}
-
-async function getPlayerDataFromServer(playersToUse, targetGameId)
-{
-    console.log("Fetching Player Data from Server...");
-
-    const rawServerResponse = await require("../interfaces/databaseInterface.js").getAllTeamBuildingData(playersToUse.toString(), targetGameId);
-    return rawServerResponse.availableTeamMembers;
-}
-
-function constructTeamMembers(rawPlayerServerData)
-{
-    console.log("Constructing Team Members from Server Data...");
-
-    let unsortedTeamMembers = [];
-    for (let playerData of rawPlayerServerData)
+    calculateAveragePlayerScore(availableTeamMembers)
     {
-        let teamMemberRatings = [];
-        let primaryRoleIndex = -1, currentIndex = 0;
-        for (let roleRating of playerData.roleRatings)
+        let averagePlayerScore = 0;
+        for(let teamMember of availableTeamMembers)
         {
-            if (roleRating.isPrimary)
+            averagePlayerScore += teamMember.roleRatings.reduce((sum, curr) => sum += curr.value, 0);
+        }
+
+        // TODO: Dynamically fetch team count here instead of 2
+        return averagePlayerScore / 2;
+    }
+
+    calculateAllUniquePermutations(availableTeamMembers, targetGameData)
+    {
+        let playerCount = availableTeamMembers.length;
+
+        let minTeamCount = targetGameData.gameTeamConfigs.reduce((sum, curr) => sum += curr.isTeamRequired ? 1 : 0, 0);
+        let maxTeamCount = targetGameData.gameTeamConfigs.length;
+
+        // let minTeamPlayerCount = targetGameData.gameTeamConfigs[0].minTeamSize;
+        let maxTeamPlayerCount = targetGameData.gameTeamConfigs[0].maxTeamSize;
+
+        let value1 = Math.ceil(playerCount / maxTeamPlayerCount).clamp(minTeamCount, maxTeamCount);
+        let minPermutationBounds = Math.floor(playerCount / value1);
+        let maxPermutationBounds = Math.ceil(playerCount / value1);
+
+        let allPermutations = [];
+        for(let i = minPermutationBounds; i <= maxPermutationBounds; i++)
+        {
+            allPermutations.push(...availableTeamMembers.permutate(i, true));
+        }
+
+        return allPermutations;
+    }
+
+    sortAndFilterPermutations(allPermutations, averagePlayerScore, groupKeyToGroupModifier, permutationCount)
+    {
+        const orderedTeamPermutations = allPermutations.filter((value) => {
+            let valDiff = this.calculateTeamAverageScoreDifference(value, averagePlayerScore, groupKeyToGroupModifier);
+            return valDiff <= 200;
+        }).sort((a, b) => {
+            let aDiff = this.calculateTeamAverageScoreDifference(a, averagePlayerScore, groupKeyToGroupModifier);
+            let bDiff = this.calculateTeamAverageScoreDifference(b, averagePlayerScore, groupKeyToGroupModifier);
+
+            return aDiff - bDiff;
+        });
+
+        return orderedTeamPermutations.slice(0, permutationCount);
+    }
+
+    calculateTeamAverageScoreDifference(teamArray, averagePlayerScore, groupKeyToGroupModifier)
+    {
+        let totalTeamScore = 0, teamKeyArray = [];
+
+        // Accumlate all team member's average scores
+        for(let teamMember of teamArray)
+        {
+            totalTeamScore += teamMember.roleRatings.reduce((sum, curr) => sum += curr.value, 0);
+            teamKeyArray.push(teamMember.name);
+        }
+
+        // Add Group Historical Modifier
+        let teamKey = teamKeyArray.sort().join("-");
+        let groupHistoricalModifier = groupKeyToGroupModifier.get(teamKey)?.groupScore ?? 0;
+
+        return Math.abs((totalTeamScore + groupHistoricalModifier) - averagePlayerScore);
+    }
+
+    constructMatchWrapper(targetGameData)
+    {
+        let match = new Match(targetGameData.gameTeamConfigs.length);
+        match.game = targetGameData;
+
+        return match;
+    }
+
+    constructMatchTeams(match, availableTeamMembers, viableTeamPermutations)
+    {
+        let initialTeamPermutation = viableTeamPermutations[Math.floor(Math.random() * (viableTeamPermutations.length - 1))];
+        let secondaryTeamPermutation = [];
+
+        for(let availableTeamMember of availableTeamMembers)
+        {
+            let isAlreadySelected = false;
+            for(let selectedTeamMember of initialTeamPermutation)
             {
-                console.log(`Setting ${playerData.name}'s primary role to ${roleRating.role} (Index: ${currentIndex})`);
-                primaryRoleIndex = currentIndex;
+                if (availableTeamMember === selectedTeamMember)
+                {
+                    isAlreadySelected = true;
+                    break;
+                }
             }
 
-            teamMemberRatings.push(new TeamMemberRoleRating(
-                roleRating.id,
-                roleRating.role,
-                roleRating.value,
-                roleRating.isPrimary
+            if (!isAlreadySelected)
+            {
+                secondaryTeamPermutation.push(availableTeamMember);
+            }
+        }
+
+        return [
+            this.constructTeamWrappers(match, match.game.gameTeamConfigs[0], initialTeamPermutation),
+            this.constructTeamWrappers(match, match.game.gameTeamConfigs[1], secondaryTeamPermutation)
+        ];
+    }
+
+    constructTeamWrappers(match, teamConfig, teamMembers)
+    {
+        let teamWrapper = new Team(match, teamConfig);
+        match.addTeam(teamWrapper);
+
+        for(let teamMember of this.constructTeamMemberWrappers(teamMembers))
+        {
+            teamWrapper.addNewTeamMember(teamMember);
+        }
+
+        return teamWrapper;
+    }
+
+    constructTeamMemberWrappers(availableTeamMembers)
+    {
+        let teamMemberWrappers = [];
+        for (let playerData of availableTeamMembers)
+        {
+            let teamMemberRatings = [];
+            let primaryRoleIndex = -1, currentIndex = 0;
+            for (let roleRating of playerData.roleRatings)
+            {
+                if (roleRating.isPrimary)
+                {
+                    primaryRoleIndex = currentIndex;
+                }
+
+                teamMemberRatings.push(new TeamMemberRoleRating(
+                    roleRating.id,
+                    roleRating.role,
+                    roleRating.value,
+                    roleRating.isPrimary
+                ));
+
+                currentIndex++;
+            }
+
+            teamMemberWrappers.push(new TeamMember(
+                playerData.name,
+                playerData.discordNameTag,
+                primaryRoleIndex,
+                teamMemberRatings
             ));
-
-            currentIndex++;
         }
 
-        unsortedTeamMembers.push(new TeamMember(
-            playerData.name,
-            playerData.discordNameTag,
-            primaryRoleIndex,
-            teamMemberRatings
-        ));
+        return teamMemberWrappers;
     }
 
-    return unsortedTeamMembers;
-}
-
-function constructMatchObject(playerCount, targetGameData)
-{
-    console.log("\nConstructing Base Match Object...");
-
-    let match = new Match(targetGameData.gameTeamConfigs.length);
-    match.game = targetGameData;
-
-    let accumulatedMaxPlayerCount = 0;
-    for (let teamConfig of targetGameData.gameTeamConfigs)
+    executeMatchBalance(selectedTeams)
     {
-        if (teamConfig.isTeamRequired || accumulatedMaxPlayerCount < playerCount)
+        const TARGET_BALANCE_FACTOR = 50;
+        let accuracyCounter = 0; // Determines the amount of variancy in the balance picks, as the loop goes on the number forces more precise (but less random) picks
+
+        while(this.calculateAllTeamsAverageDifference(selectedTeams) > TARGET_BALANCE_FACTOR) 
         {
-            accumulatedMaxPlayerCount += teamConfig.maxteamSize;
+            let balanceFunctions = [];
+            let currentTeamScores = selectedTeams.map((team) => team.teamRating);
 
-            console.log(`Creating '${teamConfig.teamName}' team`);
-            match.addTeam(new Team(match, teamConfig));
+            for(let i = 0; i < selectedTeams.length; i++)
+            {
+                for(let teamMember of selectedTeams[i].teamMembers)
+                {
+                    let selectedRoleRating = teamMember.getSelectedRoleRating();
+                    for(let j = 0; j < teamMember.memberRoleRatings.length; j++)
+                    {
+                        if (j === teamMember.selectedMemberRoleIndex) {  continue; }
+
+                        let teamMemberRoleRating = teamMember.memberRoleRatings[j];
+                        let avgDiffChange = this.calculateAverageTeamDifference(
+                            currentTeamScores[i] + (teamMemberRoleRating.roleRating - selectedRoleRating), 
+                            currentTeamScores.filter((element, index) => index !== i)
+                        );
+
+                        balanceFunctions.push({
+                            avgDiffChange: avgDiffChange, 
+                            teamMemberRef: teamMember,
+                            targetRoleIndex: j
+                        });
+                    }
+                }   
+            }
+
+            let sortedBalanceFunctions = balanceFunctions.sort((a, b) => a.avgDiffChange - b.avgDiffChange);
+            let variancyCeilIndex = Math.ceil((sortedBalanceFunctions.length - 1) * (1 - accuracyCounter));
+            let targetBalanceFunction = sortedBalanceFunctions[Math.floor(Math.random() * variancyCeilIndex)];
+
+            targetBalanceFunction.teamMemberRef.updateTeamMemberRole(targetBalanceFunction.targetRoleIndex);
+            accuracyCounter += 0.01.clamp(0, 1); // Increase accuracy by 1% every loop
         }
     }
 
-    return match;
-}
-
-function executeInitialPlacings(unsortedTeamMembers, match)
-{
-    console.log("\n===========Starting Initial Placements===========");
-    while (unsortedTeamMembers.length > 0)
+    calculateAllTeamsAverageDifference(selectedTeams)
     {
-        let targetMemberIndex = Math.floor(Math.random() * unsortedTeamMembers.length);
-        let targetMember = unsortedTeamMembers[targetMemberIndex];
-        let weakestTeamIndex = match.getWeakestTeamIndex(true);
+        let currentTeamScores = selectedTeams.map((team) => team.teamRating);
+        let diff = 0;
 
-        console.log(`Adding ${targetMember.teamMemberName} to '${match.teams[weakestTeamIndex].teamName}' (Index: ${weakestTeamIndex})\n`);
-
-        match.addTeamMember(targetMember, weakestTeamIndex);
-        unsortedTeamMembers.splice(targetMemberIndex, 1);
-    }
-}
-
-function executeTeamBalance(match)
-{
-    console.log("\n===========Starting Team Balance===========")
-
-    let balanceThreshold = 50; //TODO: Replace this hard coded value with one from the server
-    if (match.getBalanceThreshold() <= balanceThreshold)
-    {
-        console.log("Skipping Balance as initial placements are already balanced");
-        return;
-    }
-
-    let membersThatCanBeBalanced;
-    do
-    {
-        let strongestTeamIndex = match.getStrongestTeamIndex(false);
-        membersThatCanBeBalanced = getMembersThatCanBeBalanced(match, strongestTeamIndex);
-
-        if (membersThatCanBeBalanced.length === 0)
+        for(let i = 0; i < currentTeamScores.length; i++)
         {
-            console.log("Could not balance teams");
-            break;
+            diff += this.calculateAverageTeamDifference(currentTeamScores[i], currentTeamScores.filter((element, index) => index !== i));
         }
 
-        targetPlayerIndex = Math.round(Math.random() * (membersThatCanBeBalanced.length - 1));
-        targetPlayer = membersThatCanBeBalanced[targetPlayerIndex];
-
-        let targetRoleIndex = targetPlayer.getNextLowestRoleIndex()
-
-        console.log(`${targetPlayer.teamMemberName}: ${targetPlayer.memberRoleRatings[targetPlayer.selectedMemberRoleIndex].roleName} -> ${targetPlayer.memberRoleRatings[targetRoleIndex].roleName}`);
-        targetPlayer.updateTeamMemberRole(targetRoleIndex);
+        return diff / currentTeamScores.length;
     }
-    while (membersThatCanBeBalanced.length > 0 && match.getBalanceThreshold() > balanceThreshold);
-}
 
-function getMembersThatCanBeBalanced(match, teamIndex)
-{
-    let membersThatCanBeBalanced = [];
-    let targetTeam = match.teams[teamIndex].teamMembers;
-
-    for (let teamMember of targetTeam)
+    calculateAverageTeamDifference(targetTeamRating, allTeamRatings)
     {
-        if (teamMember.selectedMemberRoleIndex === teamMember.getNextLowestRoleIndex()) { continue; }
-        membersThatCanBeBalanced.push(teamMember);
-    }
+        let averageTeamScoreDifference = 0;
 
-    return membersThatCanBeBalanced;
+        for(let i = 0; i < allTeamRatings.length; i++)
+        {
+            let compareTeam = allTeamRatings[i];
+            averageTeamScoreDifference += targetTeamRating - compareTeam;
+        }
+
+        return Math.abs(Math.floor(averageTeamScoreDifference / allTeamRatings.length));
+    }
 }
 
-module.exports = { run };
+module.exports = { MatchTeamGenerator }
