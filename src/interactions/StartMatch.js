@@ -36,7 +36,7 @@ class StartMatchInteraction extends BaseInteraction
             return;
         }
 
-        inProgressMatchTrackerList.addInProgressMatchTracker(newInProgressMatchTracker);
+        inProgressMatchTrackerList.addInProgressMatchTracker(messageId, newInProgressMatchTracker);
         return;
     }
 }

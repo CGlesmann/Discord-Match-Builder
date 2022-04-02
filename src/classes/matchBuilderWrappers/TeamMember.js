@@ -100,6 +100,13 @@ class TeamMember
         return `${nameString} - ${roleString}`;
     }
 
+    getAveragePlayerRoleScore()
+    {
+        if (!this.memberRoleRatings || !this.memberRoleRatings.length) { return 0; }
+
+        return this.memberRoleRatings.reduce((sum, curr) => sum += curr.roleRating, 0);
+    }
+
     hasPrimaryRole()
     {
         return (this.primaryRoleIndex != -1);
@@ -138,6 +145,8 @@ class TeamMember
 
     updateTeamMemberRole(newRoleIndex)
     {
+        console.log(`${this.teamMemberName}: ${this.memberRoleRatings[this.selectedMemberRoleIndex].roleName} -> ${this.memberRoleRatings[newRoleIndex].roleName}`);
+
         let currentRating = this.getSelectedRoleRating();
         this.selectedMemberRoleIndex = newRoleIndex;
 
@@ -159,7 +168,7 @@ class TeamMember
 
     async moveTeamMemberToOriginalVoiceChannel()
     {
-        if (!this.originalDiscordChannel)
+        if (!this.originalDiscordChannel || !this.discordGuildMember.voice)
         {
             return null;
         }

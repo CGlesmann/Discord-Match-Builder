@@ -105,4 +105,5 @@ dist
 
 # Local Test Scripts
 testScripts
+localDevFiles
 ./.sfdx

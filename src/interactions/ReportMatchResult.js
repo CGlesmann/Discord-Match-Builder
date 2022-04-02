@@ -2,6 +2,7 @@ const { BaseInteraction } = require("./base/BaseInteraction");
 const { ApplicationCacheManager } = require("../managers/applicationCacheManager");
 const { MatchCompletedScreen } = require("../ui/screens/MatchCompletedScreen");
 const { contructMatchResultWrapper } = require("../managers/eloRatingManager");
+const { postMatchResult } = require("../interfaces/databaseInterface");
 const { APPLICATION_CACHE_KEYS } = require("../utils/Constants");
 
 class ReportMatchResultInteraction extends BaseInteraction

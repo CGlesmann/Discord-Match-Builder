@@ -1,3 +1,4 @@
+require("./utils/extensions");
 require("dotenv").config();
 
 const { Client, Intents } = require("discord.js");
