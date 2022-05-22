@@ -3,11 +3,13 @@ const { constructEmbeddedDiscordMessage } = require("../../interfaces/discordInt
 
 class PlayerGameStatisticsInfo
 {
+    playerInfo;
     gameInfo;
     playerRoleRatingIdToRoleStatistics;
 
-    constructor(gameInfo)
+    constructor(playerInfo, gameInfo)
     {
+        this.playerInfo = playerInfo;
         this.gameInfo = gameInfo;
         this.playerRoleRatingIdToRoleStatistics = new Map();
     }
@@ -36,7 +38,7 @@ class PlayerGameStatisticsInfo
     {
         let baseEmbed = constructEmbeddedDiscordMessage([
             {
-                title: `${this.gameInfo.name} Stats`,
+                title: `${this.playerInfo.name}'s ${this.gameInfo.name} Stats`,
                 description: ""
             }
         ])[0];

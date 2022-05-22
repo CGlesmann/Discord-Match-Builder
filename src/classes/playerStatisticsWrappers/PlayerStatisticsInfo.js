@@ -18,7 +18,7 @@ class PlayerStatisticsInfo
 
         if (!targetGameStatisticsWrapper)
         {
-            targetGameStatisticsWrapper = new PlayerGameStatisticsInfo(matchResultWrapper.player_role_rating.game);
+            targetGameStatisticsWrapper = new PlayerGameStatisticsInfo(this.playerInfo, matchResultWrapper.player_role_rating.game);
         }
 
         targetGameStatisticsWrapper.addMatchResult(matchResultWrapper);
