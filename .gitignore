@@ -104,6 +104,6 @@ dist
 .tern-port
 
 # Local Test Scripts
-testScripts
-localDevFiles
+testScripts/**
+localDevFiles/**
 ./.sfdx
