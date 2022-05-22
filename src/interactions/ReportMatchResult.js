@@ -16,7 +16,7 @@ class ReportMatchResultInteraction extends BaseInteraction
         targetInProgressMatchTracker.match.endMatch();
 
         const generatedMatchResult = contructMatchResultWrapper(winningTeamIndex, targetInProgressMatchTracker.match);
-        // postMatchResult(generatedMatchResult);
+        postMatchResult(generatedMatchResult);
 
         let matchCompletedScreen = new MatchCompletedScreen(targetInProgressMatchTracker, generatedMatchResult);
         interactionObject.update(matchCompletedScreen.getCompletedMatchScreen(interactionObject.message.embeds[0]));

@@ -3,34 +3,79 @@ const { TeamMember } = require("../classes/matchBuilderWrappers/TeamMember");
 const { TeamMemberRoleRating } = require("../classes/matchBuilderWrappers/TeamMemberRoleRating");
 const { Match } = require("../classes/matchBuilderWrappers/Match");
 
-const { getAllTeamBuildingData, getAllGames } = require("../interfaces/databaseInterface.js");
+const { getAllTeamBuildingData } = require("../interfaces/databaseInterface.js");
 const { getGroupModifierMap } = require("./teamHistoryModifierBuilder");
 
 class MatchTeamGenerator
 {
+    groupKeyToGroupModifier;
+    currentTeamInbalanceMods;
+
+    config;
+
+    // CONSTRUCTOR
+
+    constructor()
+    {
+        this.initializeConfig();
+    }
+
     async run(targetPlayerIds, targetGameData)
     {
-        const [playerData, groupKeyToGroupModifier] = await Promise.all([
+        console.log("---------------Starting Team Generation---------------");
+        console.log(`Retrieving Server Data (targetPlayerIds: ${targetPlayerIds.toString()}, targetGameId: ${targetGameData.gameId})`);
+
+        const [teamBuildingData, groupModifierResponse] = await Promise.all([
             getAllTeamBuildingData(targetPlayerIds.toString(), targetGameData.gameId),
             getGroupModifierMap()
         ]);
 
-        const availableTeamMembers = playerData.availableTeamMembers;
+        this.groupKeyToGroupModifier = groupModifierResponse;
+        const availableTeamMembers = teamBuildingData.availableTeamMembers;
+
+        if (!availableTeamMembers || !availableTeamMembers.length)
+        {
+            let noTeamMemberServerData = `Couldn't locate any server data for the following player ids: ${targetPlayerIds.toString()}`;
+
+            console.log(noTeamMemberServerData);
+            throw { message: noTeamMemberServerData}
+        }
+        console.log("Server Data Retrieved\n");
 
         const averagePlayerScore = this.calculateAveragePlayerScore(availableTeamMembers);
         const allPermutations = this.calculateAllUniquePermutations(availableTeamMembers, targetGameData);
 
-        const viableTeamPermutations = this.sortAndFilterPermutations(allPermutations, averagePlayerScore, groupKeyToGroupModifier, 15);
+        const viableTeamPermutations = this.sortAndFilterPermutations(allPermutations, averagePlayerScore, 15);
+        if (!viableTeamPermutations || !viableTeamPermutations.length) {
+            throw { message: "Couldn't generate teams with the given parameters" };
+        }
 
+        console.log("\n---------------Building Match/Team/Team Member wrappers---------------");
         let match = this.constructMatchWrapper(targetGameData);
         let selectedTeams = this.constructMatchTeams(match, availableTeamMembers, viableTeamPermutations);
 
-        this.executeMatchBalance(selectedTeams);
+        this.executeMatchBalance(selectedTeams, teamBuildingData.availableAIData);
         return match;
     }
 
+    // CONFIG METHODS
+
+    initializeConfig()
+    {   
+        this.config = { isAIEnabled: false };
+    }
+
+    toggleIsAIEnabled(isAIEnabled)
+    {
+        this.config.isAIEnabled = isAIEnabled;
+    }
+
+    // GENERATION METHODS
+
     calculateAveragePlayerScore(availableTeamMembers)
     {
+        console.log("---------------Calculating average player score---------------");
+
         let averagePlayerScore = 0;
         for(let teamMember of availableTeamMembers)
         {
@@ -38,11 +83,15 @@ class MatchTeamGenerator
         }
 
         // TODO: Dynamically fetch team count here instead of 2
-        return averagePlayerScore / 2;
+        averagePlayerScore /= 2;
+
+        console.log(`Average player score calculated: ${averagePlayerScore}\n`);
+        return averagePlayerScore;
     }
 
     calculateAllUniquePermutations(availableTeamMembers, targetGameData)
     {
+        console.log("---------------Calculating all unique team placements---------------");
         let playerCount = availableTeamMembers.length;
 
         let minTeamCount = targetGameData.gameTeamConfigs.reduce((sum, curr) => sum += curr.isTeamRequired ? 1 : 0, 0);
@@ -61,25 +110,50 @@ class MatchTeamGenerator
             allPermutations.push(...availableTeamMembers.permutate(i, true));
         }
 
+        console.log(`Finished Calculating team placements, found ${allPermutations.length} combonations\n`);
         return allPermutations;
     }
 
-    sortAndFilterPermutations(allPermutations, averagePlayerScore, groupKeyToGroupModifier, permutationCount)
+    sortAndFilterPermutations(allPermutations, averagePlayerScore, permutationCount)
     {
-        const orderedTeamPermutations = allPermutations.filter((value) => {
-            let valDiff = this.calculateTeamAverageScoreDifference(value, averagePlayerScore, groupKeyToGroupModifier);
-            return valDiff <= 200;
-        }).sort((a, b) => {
-            let aDiff = this.calculateTeamAverageScoreDifference(a, averagePlayerScore, groupKeyToGroupModifier);
-            let bDiff = this.calculateTeamAverageScoreDifference(b, averagePlayerScore, groupKeyToGroupModifier);
+        console.log("---------------Filtering Team Permutations---------------");
+        console.log(`Beginning team placement filtering, targeting ${permutationCount} team combinations with a threshold of ${1000}`);
+
+        let filteredTeamPermutations = allPermutations.filter((permutation) => {
+            let valDiff = this.calculateTeamAverageScoreDifference(permutation, averagePlayerScore);
+            let pass = (valDiff <= 1000);
+
+            if (pass) {
+                console.log(`Team Combo ${permutation.map((player) => player.name).join("-")} passed filtering (${valDiff})`);
+            }
+
+            return pass;
+        });
+
+        if (!filteredTeamPermutations.length)
+        {
+            console.log(`No Team Permutations passed the filter threshold (${1000})`);
+            return [];
+        }
+
+        let orderedTeamPermutations = filteredTeamPermutations.sort((a, b) => {
+            let aDiff = this.calculateTeamAverageScoreDifference(a, averagePlayerScore);
+            let bDiff = this.calculateTeamAverageScoreDifference(b, averagePlayerScore);
 
             return aDiff - bDiff;
         });
 
-        return orderedTeamPermutations.slice(0, permutationCount);
+        console.log("\n---------------Final Team Permutations from filtering---------------");
+
+        let finalTeamPermutations = orderedTeamPermutations.slice(0, permutationCount);
+        for(let finalTeamPermutation of finalTeamPermutations) {
+            console.log(`${finalTeamPermutation.map((player) => player.name).join("-")}`);
+        }
+
+        return finalTeamPermutations;
     }
 
-    calculateTeamAverageScoreDifference(teamArray, averagePlayerScore, groupKeyToGroupModifier)
+    calculateTeamAverageScoreDifference(teamArray, averagePlayerScore)
     {
         let totalTeamScore = 0, teamKeyArray = [];
 
@@ -92,7 +166,7 @@ class MatchTeamGenerator
 
         // Add Group Historical Modifier
         let teamKey = teamKeyArray.sort().join("-");
-        let groupHistoricalModifier = groupKeyToGroupModifier.get(teamKey)?.groupScore ?? 0;
+        let groupHistoricalModifier = this.groupKeyToGroupModifier.get(teamKey)?.groupScore ?? 0;
 
         return Math.abs((totalTeamScore + groupHistoricalModifier) - averagePlayerScore);
     }
@@ -127,6 +201,11 @@ class MatchTeamGenerator
                 secondaryTeamPermutation.push(availableTeamMember);
             }
         }
+
+        console.log("Initial Team Placements Selected...");
+        console.log(`${match.game.gameTeamConfigs[0].teamName}: ${initialTeamPermutation.map((teamMember) => teamMember.name).join(", ")}`);
+        console.log(`${match.game.gameTeamConfigs[1].teamName}: ${secondaryTeamPermutation.map((teamMember) => teamMember.name).join(", ")}`);
+        console.log();
 
         return [
             this.constructTeamWrappers(match, match.game.gameTeamConfigs[0], initialTeamPermutation),
@@ -182,52 +261,216 @@ class MatchTeamGenerator
         return teamMemberWrappers;
     }
 
-    executeMatchBalance(selectedTeams)
+    executeMatchBalance(selectedTeams, availableAIDifficulties)
     {
-        const TARGET_BALANCE_FACTOR = 50;
-        let accuracyCounter = 0; // Determines the amount of variancy in the balance picks, as the loop goes on the number forces more precise (but less random) picks
+        console.log("\n---------------Starting Match Balancing---------------");
 
-        while(this.calculateAllTeamsAverageDifference(selectedTeams) > TARGET_BALANCE_FACTOR) 
+        const TARGET_BALANCE_FACTOR = 50;
+
+        // Determines the amount of variancy in the balance picks
+        // As the loop goes on the number forces more precise (but less random) picks
+        let accuracyCounter = 0; 
+        
+        this.currentTeamInbalanceMods = this.getAllTeamCountInbalanceModifiers(selectedTeams);
+        while(!this.isMatchInBalanceThreshold(selectedTeams, TARGET_BALANCE_FACTOR)) 
         {
             let balanceFunctions = [];
-            let currentTeamScores = selectedTeams.map((team) => team.teamRating);
+            let currentTeamScores = selectedTeams.map((team, teamIndex) => this.calculateAdjustedTeamScore(team, this.currentTeamInbalanceMods[teamIndex]));
 
-            for(let i = 0; i < selectedTeams.length; i++)
+            balanceFunctions.push(...this.buildAllTeamMemberRoleChangeBalanceFunctions(selectedTeams, currentTeamScores));
+            if (availableAIDifficulties && this.config.isAIEnabled)
             {
-                for(let teamMember of selectedTeams[i].teamMembers)
-                {
-                    let selectedRoleRating = teamMember.getSelectedRoleRating();
-                    for(let j = 0; j < teamMember.memberRoleRatings.length; j++)
-                    {
-                        if (j === teamMember.selectedMemberRoleIndex) {  continue; }
-
-                        let teamMemberRoleRating = teamMember.memberRoleRatings[j];
-                        let avgDiffChange = this.calculateAverageTeamDifference(
-                            currentTeamScores[i] + (teamMemberRoleRating.roleRating - selectedRoleRating), 
-                            currentTeamScores.filter((element, index) => index !== i)
-                        );
-
-                        balanceFunctions.push({
-                            avgDiffChange: avgDiffChange, 
-                            teamMemberRef: teamMember,
-                            targetRoleIndex: j
-                        });
-                    }
-                }   
+                balanceFunctions.push(...this.buildAllAIAdditionBalanceFunctions(selectedTeams, currentTeamScores, availableAIDifficulties));
             }
+
+            console.log(`Found ${balanceFunctions.length} Balance Functions`);
 
             let sortedBalanceFunctions = balanceFunctions.sort((a, b) => a.avgDiffChange - b.avgDiffChange);
             let variancyCeilIndex = Math.ceil((sortedBalanceFunctions.length - 1) * (1 - accuracyCounter));
-            let targetBalanceFunction = sortedBalanceFunctions[Math.floor(Math.random() * variancyCeilIndex)];
+            let targetBalanceFunctionIndex = Math.floor(Math.random() * variancyCeilIndex);
+            let targetBalanceFunction = sortedBalanceFunctions[targetBalanceFunctionIndex];
 
-            targetBalanceFunction.teamMemberRef.updateTeamMemberRole(targetBalanceFunction.targetRoleIndex);
-            accuracyCounter += 0.01.clamp(0, 1); // Increase accuracy by 1% every loop
+            if (!targetBalanceFunction) 
+            {
+                console.log("Couldn't find balance function", sortedBalanceFunctions, targetBalanceFunctionIndex); 
+                continue; 
+            }
+
+            try
+            {
+                targetBalanceFunction.execute();
+
+                if (this.isMatchInBalanceThreshold(selectedTeams, TARGET_BALANCE_FACTOR)) {
+                    console.log('\n---------------Final Results---------------');
+
+                    let selectedTeamIndex = 0;
+                    for(let selectedTeam of selectedTeams)
+                    {
+                        let teamAdjustedScore = this.calculateAdjustedTeamScore(selectedTeam, this.currentTeamInbalanceMods[selectedTeamIndex++]);
+                        let teamMemberNames = selectedTeam.teamMembers.map((teamMember) => teamMember.teamMemberName).join(", ");
+
+                        selectedTeam.setAdjustedTeamRating(teamAdjustedScore);
+                        console.log(`${selectedTeam.teamName} (${teamAdjustedScore}): ${teamMemberNames}`);
+                    }
+                }
+            }
+            catch(e)
+            {
+                console.log(e);
+            }
+
+            // Increase accuracy by 1% every loop
+            accuracyCounter = (accuracyCounter + 0.01).clamp(0, 1);
+            console.log(); 
         }
+    }
+
+    isMatchInBalanceThreshold(selectedTeams, balanceThreshold)
+    {
+        let diff = this.calculateAllTeamsAverageDifference(selectedTeams);
+        return (diff <= balanceThreshold);
+    }
+
+    calculateAdjustedTeamScore(team, teamInbalanceModifier)
+    {
+        let teamHistoryKey = team.teamMembers.map((teamMember) => teamMember.teamMemberName).sort().join('-');
+
+        let teamHistoryMod = this.groupKeyToGroupModifier.get(teamHistoryKey);
+        teamHistoryMod = teamHistoryMod?.groupScore || 0;
+
+        return Math.floor((team.teamRating * teamInbalanceModifier) + teamHistoryMod);
+    }
+
+    getAllTeamCountInbalanceModifiers(selectedTeams)
+    {
+        console.log("Getting Team Inbalance Modifiers");
+
+        let mods = [];
+        for(let i = 0; i < selectedTeams.length; i++)
+        {
+            let targetTeamPlayerCount = selectedTeams[i].teamMembers.length;
+            let avgMod = 0;
+
+            for(let j = 0; j < selectedTeams.length; j++)
+            {
+                if (j === i) { continue; }
+
+                let compareTeamPlayerCount = selectedTeams[j].teamMembers.length;
+                if (targetTeamPlayerCount < compareTeamPlayerCount)
+                {
+                    avgMod += 1;
+                    continue;
+                }
+
+                avgMod += selectedTeams[i].teamMembers.length / selectedTeams[j].teamMembers.length;
+            }
+
+            avgMod /= (selectedTeams.length - 1);
+            mods.push(avgMod);
+        }
+
+        console.log(`New Team Inbalance Modifiers: ${mods.toString()}`);
+        return mods;
+    }
+
+    buildAllTeamMemberRoleChangeBalanceFunctions(selectedTeams, currentTeamScores)
+    {
+        let balanceFunctions = [];
+
+        for(let i = 0; i < selectedTeams.length; i++)
+        {
+            for(let teamMember of selectedTeams[i].teamMembers)
+            {
+                let selectedRoleRating = teamMember.getSelectedRoleRating();
+                for(let j = 0; j < teamMember.memberRoleRatings.length; j++)
+                {
+                    if (j === teamMember.selectedMemberRoleIndex) {  continue; }
+
+                    let teamMemberRoleRating = teamMember.memberRoleRatings[j];
+                    let avgDiffChange = this.calculateAverageTeamDifference(
+                        currentTeamScores[i] + (teamMemberRoleRating.roleRating - selectedRoleRating), 
+                        currentTeamScores.filter((element, index) => index !== i)
+                    );
+
+                    balanceFunctions.push({
+                        avgDiffChange: avgDiffChange,
+                        execute: () => {
+                            teamMember.updateTeamMemberRole(j);
+                        }
+                    });
+                }
+            }   
+        }
+
+        return balanceFunctions;
+    }
+
+    buildAllAIAdditionBalanceFunctions(selectedTeams, currentTeamScores, availableAIDifficulties)
+    {
+        let totalPlayerCount = selectedTeams.reduce((sum, curr) => sum += curr.teamMembers.length, 0);
+        let balanceFunctions = [];
+        let currentTeamIndex = 0;
+
+        for(let selectedTeam of selectedTeams)
+        {
+            if (selectedTeam.isFull() || totalPlayerCount % selectedTeams.length === 0 || Math.floor(totalPlayerCount / selectedTeams.length) - selectedTeam.teamMembers.length !== 0) { continue; }
+
+            for(let availableAIDifficulty of availableAIDifficulties)
+            {
+                let avgDiffChange = this.calculateAverageTeamDifference(
+                    currentTeamScores[currentTeamIndex] + availableAIDifficulty.rating, 
+                    currentTeamScores.filter((element, index) => index !== currentTeamIndex)
+                );
+
+                balanceFunctions.push({
+                    avgDiffChange: avgDiffChange,
+                    execute: () => {
+                        selectedTeam.addNewTeamMember(this.buildAITeamMemberWrapper(availableAIDifficulty, availableAIDifficulties));
+                        console.log(`Adding AI to ${selectedTeam.teamName}\n`);
+
+                        this.currentTeamInbalanceMods = this.getAllTeamCountInbalanceModifiers(selectedTeams);
+                    }
+                });
+            }
+
+            currentTeamIndex++;
+        }
+
+        return balanceFunctions;
+    }
+
+    buildAITeamMemberWrapper(availableAIDifficulty, availableAIDifficulties)
+    {
+        let aiDifficultyRoles = [];
+        let primaryIndex = 0;
+
+        for(let i = 0; i < availableAIDifficulties.length; i++)
+        {
+            let isPrimary = (availableAIDifficulties[i].id === availableAIDifficulty.id);
+            if (isPrimary) { primaryIndex = i; }
+
+            aiDifficultyRoles.push(new TeamMemberRoleRating(
+                availableAIDifficulties[i].id,
+                availableAIDifficulties[i].name,
+                availableAIDifficulties[i].rating,
+                isPrimary
+            ));
+        }
+
+        let aiTeamMemberWrapper = new TeamMember(
+            "AI",
+            "",  // AI Don't need a discordId
+            primaryIndex,
+            aiDifficultyRoles
+        );
+
+        aiTeamMemberWrapper.setAsAI()
+        return aiTeamMemberWrapper;
     }
 
     calculateAllTeamsAverageDifference(selectedTeams)
     {
-        let currentTeamScores = selectedTeams.map((team) => team.teamRating);
+        let currentTeamScores = selectedTeams.map((team, teamIndex) => this.calculateAdjustedTeamScore(team, this.currentTeamInbalanceMods[teamIndex]));
         let diff = 0;
 
         for(let i = 0; i < currentTeamScores.length; i++)

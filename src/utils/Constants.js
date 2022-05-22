@@ -17,5 +17,12 @@ module.exports = {
         MATCH_GENERATION_REQUESTS: "MATCH_GENERATION_REQUESTS",
         IN_PROGRESS_MATCH_TRACKERS: "IN_PROGRESS_MATCH_TRACKERS",
         ALL_GAME_DATA: "ALL_GAME_DATA"
+    },
+
+    DATABASE_KEYWORDS: {
+        MATCH_RESULT: {
+            WON: "Won",
+            LOST: "Lost"
+        }
     }
 }

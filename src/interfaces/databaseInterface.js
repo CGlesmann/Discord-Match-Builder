@@ -1,11 +1,4 @@
-// const jsforce = require("jsforce");
-
-// const SF_LOGIN_URL = "https://login.salesforce.com";
-// const SF_CONNECTION = new jsforce.Connection({
-//     loginUrl: SF_LOGIN_URL
-// });
-
-const { createClient, SupabaseClient } = require("@supabase/supabase-js");
+const { createClient } = require("@supabase/supabase-js");
 
 const supabaseClient = createClient(
     process.env.SUPABASE_URL,
@@ -14,7 +7,36 @@ const supabaseClient = createClient(
 
 async function getAllTeamBuildingData(targetPlayerIds, targetGameId)
 {
-    const { data, error } = await supabaseClient.from('player').select(`
+    const [playerData, aiData] = await Promise.all([
+        getAllPlayerData(targetPlayerIds, targetGameId),
+        getAllAIData(targetGameId)
+    ]);
+
+    if (playerData.error || aiData.error)
+    {
+        console.log(`There was an error fetching team building data\nPlayerData: ${playerData.error}\nAiData: ${aiData.error}`);
+        return null;
+    }
+
+    playerData.data.forEach((player) =>
+    {
+        player.roleRatings = player.roleRatings.map(roleRating =>
+        {
+            return {
+                id: roleRating.id,
+                value: roleRating.value,
+                role: roleRating.role.name,
+                isPrimary: roleRating.isPrimary
+            }
+        })
+    });
+
+    return { availableTeamMembers: playerData.data, availableAIData: aiData.data};
+}
+
+async function getAllPlayerData(targetPlayerIds, targetGameId)
+{
+    return supabaseClient.from('player').select(`
         id,
         name,
         discordNameTag:discord_id,
@@ -29,28 +51,16 @@ async function getAllTeamBuildingData(targetPlayerIds, targetGameId)
     `)
         .in('discord_id', targetPlayerIds.split(","))
         .eq('player_role_rating.game_role.game', targetGameId)
-        .eq('player_role_rating.is_active', true);
+        .eq('player_role_rating.is_active', true)
+}
 
-    if (error)
-    {
-        console.log(error);
-        return;
-    }
-
-    data.forEach((player) =>
-    {
-        player.roleRatings = player.roleRatings.map(roleRating =>
-        {
-            return {
-                id: roleRating.id,
-                value: roleRating.value,
-                role: roleRating.role.name,
-                isPrimary: roleRating.isPrimary
-            }
-        })
-    });
-
-    return { availableTeamMembers: data };
+async function getAllAIData(targetGameId)
+{
+    return supabaseClient.from('ai_difficulty_levels').select(`
+        id, name, rating
+    `)
+        .eq("game", targetGameId)
+        .eq("is_active", true);
 }
 
 async function getAllApprovedMaps(minimumPlayerCount, targetGameId)
@@ -146,23 +156,40 @@ async function postMatchResult(matchResult)
 
     let newPlayerMatchResults = [];
     let playerRoleRatingUpdates = [];
+    let aiDifficultyLevelUpdates = [];
 
     for (let teamResult of matchResult.teamResults)
     {
         for (let playerRoleRatingUpdate of teamResult.roleRatingUpdates)
         {
-            newPlayerMatchResults.push({
-                player_role_rating: playerRoleRatingUpdate.player_role_rating,
+            let ratingDBId = playerRoleRatingUpdate.isAIMember ? playerRoleRatingUpdate.ai_difficulty_level_rating : playerRoleRatingUpdate.player_role_rating;
+            let playerMatchResultIdFieldKey = playerRoleRatingUpdate.isAIMember ? "ai_difficulty_level" : "player_role_rating";
+
+            let newPlayerMatchResultWrapper = { 
+                // player_role_rating: playerRoleRatingUpdate.player_role_rating,
                 match_result: teamResult.result,
                 game_team: playerRoleRatingUpdate.game_team,
                 match: matchInsertResult.data[0].id,
                 role_rating_change: playerRoleRatingUpdate.role_rating_change
-            });
+            }
 
-            playerRoleRatingUpdates.push({
-                id: playerRoleRatingUpdate.player_role_rating,
-                value: Number(playerRoleRatingUpdate.old_role_rating) + Number(playerRoleRatingUpdate.role_rating_change)
-            });
+            newPlayerMatchResultWrapper[playerMatchResultIdFieldKey] = ratingDBId;
+            newPlayerMatchResults.push(newPlayerMatchResultWrapper);
+
+            if (!playerRoleRatingUpdate.isAIMember)
+            {
+                playerRoleRatingUpdates.push({
+                    id: ratingDBId,
+                    value: Number(playerRoleRatingUpdate.old_role_rating) + Number(playerRoleRatingUpdate.role_rating_change)
+                });
+            }
+            else
+            {
+                aiDifficultyLevelUpdates.push({
+                    id: ratingDBId,
+                    value: Number(playerRoleRatingUpdate.old_role_rating) + Number(playerRoleRatingUpdate.role_rating_change)
+                });
+            }
         }
     }
 
@@ -184,6 +211,19 @@ async function postMatchResult(matchResult)
                 .update({ value: roleUpdate.value })
                 .eq('id', roleUpdate.id)
         )
+    }
+
+    if (aiDifficultyLevelUpdates && aiDifficultyLevelUpdates.length)
+    {
+        for(let aiDifficultyUpdate of aiDifficultyLevelUpdates)
+        {
+            roleRatingUpdatePromises.push(
+                supabaseClient
+                    .from('ai_difficulty_levels')
+                    .update({ rating: aiDifficultyUpdate.value })
+                    .eq('id', aiDifficultyUpdate.id)
+            )
+        }
     }
 
     const updateResults = await Promise.all(roleRatingUpdatePromises);

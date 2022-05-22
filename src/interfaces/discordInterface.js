@@ -30,19 +30,4 @@ function constructEmbeddedDiscordMessage(messagesToCreate)
     return embeddedMessageArray;
 }
 
-function sendEmbeddedDiscordMessage(embeddedMessages, channel)
-{
-    const testRow = new MessageActionRow()
-        .addComponents(new MessageButton()
-            .setCustomId('HelloWorld')
-            .setLabel('Hello World')
-            .setStyle("SUCCESS")
-        );
-
-    channel.send({
-        embeds: embeddedMessages,
-        components: [testRow]
-    });
-}
-
-module.exports = { constructEmbeddedDiscordMessage, sendEmbeddedDiscordMessage };
+module.exports = { constructEmbeddedDiscordMessage };

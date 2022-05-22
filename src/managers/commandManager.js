@@ -1,4 +1,4 @@
-const { constructEmbeddedDiscordMessage, sendEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
+const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
 
 const COMMAND_PREFIX = "$";
 const COMMAND_CLASS_KEY = "commandClass";

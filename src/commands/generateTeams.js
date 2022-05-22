@@ -1,8 +1,7 @@
 const { BaseCommand } = require("./base/baseCommand.js");
-const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
 
-const teamBuilder = require("../modules/matchTeamGenerator.js");
 const { MatchTeamGenerator } = require("../modules/matchTeamGenerator");
+const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
 
 class GenerateTeamCommand extends BaseCommand
 {
@@ -26,8 +25,6 @@ class GenerateTeamCommand extends BaseCommand
         let gen = new MatchTeamGenerator();
         
         return await gen.run(playersToUse, targetGameData);
-        // return await run(playersToUse, targetGameData);
-        // return await teamBuilder.run(playersToUse, targetGameData);
     }
 }
 

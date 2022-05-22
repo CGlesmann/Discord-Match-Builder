@@ -1,6 +1,6 @@
 const { MatchResult } = require('../classes/matchResultWrappers/MatchResult');
 const { TeamResult } = require('../classes/matchResultWrappers/TeamResult');
-const { MATCH_RESULT_ACTUAL_AMOUNT } = require("../utils/Constants");
+const { MATCH_RESULT_ACTUAL_AMOUNT, DATABASE_KEYWORDS } = require("../utils/Constants");
 
 // TODO: adapt algorithm to account for more than two teams
 // TODO: fetch kFactor from Server
@@ -18,7 +18,7 @@ function contructMatchResultWrapper(winningTeamIndex, match)
     let winningTeam = match.teams[winningTeamIndex];
 
     let winningTeamResult = new TeamResult(winningTeam);
-    winningTeamResult.setResult("Won");
+    winningTeamResult.setResult(DATABASE_KEYWORDS.MATCH_RESULT.WON);
 
     for (let i = 0; i < match.teams.length; i++)
     {
@@ -32,17 +32,17 @@ function contructMatchResultWrapper(winningTeamIndex, match)
         losingTeams.push(targetTeam);
 
         let newTeamResult = new TeamResult(targetTeam);
-        newTeamResult.setResult("Lost");
+        newTeamResult.setResult(DATABASE_KEYWORDS.MATCH_RESULT.LOST);
         newTeamResult.setRatingPoints(Math.round(calculateScoreChange(
             K_FACTOR,
             MATCH_RESULT_ACTUAL_AMOUNT.LOST,
-            calculateExpectedScore(targetTeam.teamRating, winningTeam.teamRating)
+            calculateExpectedScore(targetTeam.adjustedTeamRating, winningTeam.adjustedTeamRating)
         )));
 
         matchResult.addTeamResult(newTeamResult)
     }
 
-    let expectedScore = calculateExpectedScore(winningTeam.teamRating, losingTeams[0].teamRating);
+    let expectedScore = calculateExpectedScore(winningTeam.adjustedTeamRating, losingTeams[0].adjustedTeamRating);
     winningTeamResult.setRatingPoints(Math.round(calculateScoreChange(
         K_FACTOR,
         MATCH_RESULT_ACTUAL_AMOUNT.WON,

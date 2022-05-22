@@ -12,7 +12,9 @@ class Team
     availableTeamRoles;
 
     teamMembers;
-    teamRating;
+
+    adjustedTeamRating; // Base Team Rating adjusted with History Mod + Offset Mod
+    teamRating; // Team Member Rating total
 
     teamDiscordVoiceChat;
 
@@ -59,7 +61,7 @@ class Team
 
     getTeamDisplay()
     {
-        let displayObject = { name: `${this.teamName} (${this.teamRating})`, value: "", inline: true };
+        let displayObject = { name: `${this.teamName} (${this.adjustedTeamRating})`, value: "", inline: true };
         for (let teamMember of this.teamMembers)
         {
             displayObject.value += `${teamMember.getPlayerDisplay()}\n`;
@@ -104,6 +106,11 @@ class Team
         });
 
         return Promise.all(allTeamMemberMovePromises);
+    }
+
+    setAdjustedTeamRating(adjustedTeamRating)
+    {
+        this.adjustedTeamRating = adjustedTeamRating;
     }
 }
 

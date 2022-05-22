@@ -15,6 +15,7 @@ class GenerateMapCommand extends BaseCommand
             c: {
                 helpText: "The amount of players the map needs to accommodate",
                 validateErrorText: "Enter a whole number greater than 0",
+                isRequired: true,
                 validate: function (agrumentStringValue)
                 {
                     let numericValue = Number(agrumentStringValue);

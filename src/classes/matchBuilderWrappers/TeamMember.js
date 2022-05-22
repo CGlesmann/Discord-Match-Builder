@@ -8,6 +8,7 @@ class TeamMember
     memberRoleRatings;
     primaryRoleIndex;
     selectedMemberRoleIndex;
+    isAIMember;
 
     team;
 
@@ -22,6 +23,8 @@ class TeamMember
 
         this.primaryRoleIndex = primaryRoleIndex;
         this.selectedMemberRoleIndex = 0;
+
+        this.isAIMember = false;
 
         // If there aren't any primary roles for the selected game, set the first role as the default role
         // this.selectedMemberRoleIndex = primaryRoleIndex != -1 ? primaryRoleIndex : 0;
@@ -112,40 +115,19 @@ class TeamMember
         return (this.primaryRoleIndex != -1);
     }
 
-    getNextLowestRoleIndex()
-    {
-        let currentSelectedRoleScore = this.memberRoleRatings[this.selectedMemberRoleIndex].roleRating;
-        let newLowestRoleIndex = this.selectedMemberRoleIndex;
-        let nextLowestRaceDifference = Infinity;
-
-        for (let roleKey in this.memberRoleRatings)
-        {
-            // Comparison expects selectedMemberRoleIndex to be a string rather than a number
-            if (roleKey == this.selectedMemberRoleIndex) { continue; }
-
-            let roleScore = this.memberRoleRatings[roleKey].roleRating;
-            if (roleScore <= currentSelectedRoleScore)
-            {
-                let difference = Math.abs(roleScore - currentSelectedRoleScore);
-                if (difference < nextLowestRaceDifference)
-                {
-                    newLowestRoleIndex = roleKey;
-                    nextLowestRaceDifference = difference;
-                }
-            }
-        }
-
-        return newLowestRoleIndex;
-    }
-
     getSelectedRoleRating()
     {
         return this.memberRoleRatings[this.selectedMemberRoleIndex].roleRating;
     }
 
+    setAsAI()
+    {
+        this.isAIMember = true;
+    }
+
     updateTeamMemberRole(newRoleIndex)
     {
-        console.log(`${this.teamMemberName}: ${this.memberRoleRatings[this.selectedMemberRoleIndex].roleName} -> ${this.memberRoleRatings[newRoleIndex].roleName}`);
+        console.log(`Setting ${this.teamMemberName} from ${this.memberRoleRatings[this.selectedMemberRoleIndex].roleName} to ${this.memberRoleRatings[newRoleIndex].roleName}`);
 
         let currentRating = this.getSelectedRoleRating();
         this.selectedMemberRoleIndex = newRoleIndex;
@@ -156,6 +138,8 @@ class TeamMember
 
     async moveTeamMemberToVoiceChannel(targetVoiceChannel, guild)
     {
+        if (this.isAIMember) { return; }
+
         // Fetch the Discord Team Member
         this.discordGuildMember = await guild.members.fetch(this.discordId);
 

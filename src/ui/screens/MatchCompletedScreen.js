@@ -26,7 +26,7 @@ class MatchCompletedScreen
 
     updateEmbedHeader(completedMatchScreenEmbed)
     {
-        let winningTeamHeaderText = `${this.generatedMatchResult.winningTeam !== -1 ? `Congrats to "${this.inProgressMatchTracker.match.teams[this.generatedMatchResult.winningTeamIndex].teamName}" for winning!` : "Its a draw."}`;
+        let winningTeamHeaderText = `${this.generatedMatchResult.winningTeam  !==-1 ? `Congrats to "${this.inProgressMatchTracker.match.teams[this.generatedMatchResult.winningTeamIndex].teamName}" for winning!` : "Its a draw."}`;
 
         completedMatchScreenEmbed.title = `Match Finished - ${this.inProgressMatchTracker.match.game.gameName}`;
         completedMatchScreenEmbed.description = `${winningTeamHeaderText} The match result/rating changes have been recorded.`;

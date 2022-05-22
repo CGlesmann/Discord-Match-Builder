@@ -11,6 +11,7 @@ class NewCommandNameHere extends BaseCommand
             "<ArgumentNameHere>": {
                 helpText: "Describes the argument use case, shown when the help command is ran",
                 validateErrorText: "Describes the expected input format, shown when an invalid value is presented for the argument",
+                isRequired: false,
                 validate: function (argumentStringValue)
                 {
                     // A function that takes in a string and validates the value is a valid input for the argument, returns true/false

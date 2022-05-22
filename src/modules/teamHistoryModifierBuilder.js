@@ -68,7 +68,14 @@ class GroupBuilder {
 
         for(let groupPlayer of this.groupPlayers)
         {
-            newGroupNames.push(groupPlayer.player.name);
+            if (groupPlayer && groupPlayer.player)
+            {
+                newGroupNames.push(groupPlayer.player.name);
+            }
+            else // If not Player, then it's an AI
+            {
+                newGroupNames.push("AI");
+            }
         }
 
         return newGroupNames.sort().join('-');
