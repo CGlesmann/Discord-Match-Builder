@@ -1,4 +1,4 @@
-const { BaseCommand } = require("./baseCommand.js");
+const { BaseCommand } = require("./base/baseCommand.js");
 
 // Rename the <NewCommandNameHere> to the Name of the Command Class
 class NewCommandNameHere extends BaseCommand

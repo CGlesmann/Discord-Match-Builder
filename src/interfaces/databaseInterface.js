@@ -236,4 +236,30 @@ async function postMatchResult(matchResult)
     }
 }
 
-module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames }
+async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
+{
+    return await supabaseClient.from('match').select(` 
+        player_match_result!inner(
+            id,
+            match_result,
+            game_team,
+            player_role_rating!inner (
+                id,
+                value,
+                is_active,
+                game!inner(id, name),
+                role!inner(name),
+                player!inner(
+                    id,
+                    name,
+                    discord_id
+                )
+            )
+        )
+    `)
+    .in("player_match_result.player_role_rating.player.discord_id", targetPlayerIds)
+    .in("player_match_result.player_role_rating.game", targetGameIds)
+    .eq("player_match_result.player_role_rating.is_active", true);
+}
+
+module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames, getPlayerStatisticsInfo }
