@@ -36,10 +36,10 @@ class PlayerRoleStatisticsInfo
 
     getStatisticField()
     {
-        let roleListDisplay = "";
-        roleListDisplay += `Games Played: ${this.rolePlayedCount}\n`;
-        roleListDisplay += `Wins: ${this.roleWinCount} (${((this.roleWinCount / this.rolePlayedCount) * 100).toFixed(0)}%)\n`;
-        roleListDisplay += `Loses: ${this.roleLostCount} (${((this.roleLostCount / this.rolePlayedCount) * 100).toFixed(0)}%)\n`;
+        let roleListDisplay = `Role Rating - ${this.roleRating}\n`;
+        roleListDisplay += `Games Played - ${this.rolePlayedCount}\n\n`;
+        roleListDisplay += `Wins - ${this.roleWinCount} (${((this.roleWinCount / this.rolePlayedCount) * 100).toFixed(0)}%)\n`;
+        roleListDisplay += `Loses - ${this.roleLostCount} (${((this.roleLostCount / this.rolePlayedCount) * 100).toFixed(0)}%)\n`;
 
         return { 
             name: `${this.roleName} Stats`, 
