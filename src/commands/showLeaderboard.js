@@ -1,9 +1,9 @@
-const { BaseCommand } = require("./base/baseCommand.js")
+const { BaseCommand } = require("./base/baseCommand.js");
 const { SelectGameScreen, SelectGameScreenOptions } = require("../ui/screens/SelectGameScreen.js");
 
 const { getAllGames } = require("../interfaces/databaseInterface");
 
-class MyStatsCommand extends BaseCommand
+class ShowLeaderboardCommand extends BaseCommand
 {
     constructor()
     {
@@ -13,22 +13,17 @@ class MyStatsCommand extends BaseCommand
 
     async run(receivedCommandArgs, message)
     {
-        if (!message.mentions.users || message.mentions.users.size === 0)
-        {
-            throw { message: "Please Tag at least 1 User" };
-        }
-
-        return await this.constructStatisticsGameSelectScreen(message);
+        return await this.constructGameLeaderboardSelectScreen(message);
     }
 
-    async constructStatisticsGameSelectScreen(message)
+    async constructGameLeaderboardSelectScreen(message)
     {
         let targetGameData = await getAllGames();
-        let selectGameScreenOptions = new SelectGameScreenOptions(targetGameData, 'SelectStatisticsGame');
+        let selectGameScreenOptions = new SelectGameScreenOptions(targetGameData, 'SelectLeaderboardGame');
 
         let selectGameScreenInstance = new SelectGameScreen(selectGameScreenOptions);
         return await selectGameScreenInstance.getSelectGameScreenDisplay(message);
     }
 }
 
-module.exports = MyStatsCommand.getExportObject();
+module.exports = ShowLeaderboardCommand.getExportObject();

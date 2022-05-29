@@ -285,4 +285,40 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
     .in("id", targetMatchIds);
 }
 
-module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames, getPlayerStatisticsInfo }
+async function getLeaderboardInfo(targetPlayerIds, targetGameId)
+{
+    if (!targetPlayerIds || !targetPlayerIds.length || !targetGameId)
+    {
+        return null;
+    }
+
+    let { data, error } = await supabaseClient.from('player_role_rating').select(`
+        game!inner(
+            id,
+            name
+        ),
+        is_active,
+        value,
+        role!inner(
+            name
+        ),
+        player!inner(
+            name,
+            discord_id
+        )
+    `)
+        .eq("game.id", targetGameId)
+        .eq("is_active", true)
+        .in("player.discord_id", targetPlayerIds)
+        .order("value", { ascending: false });
+
+    if (error)
+    {
+        console.log(error)
+        return null;
+    }
+
+    return data;
+}
+
+module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames, getPlayerStatisticsInfo, getLeaderboardInfo }
