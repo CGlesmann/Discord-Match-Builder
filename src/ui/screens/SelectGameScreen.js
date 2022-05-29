@@ -2,19 +2,20 @@ const { MessageActionRow, MessageSelectMenu, MessageEmbed } = require("discord.j
 const { ApplicationCacheManager } = require("../../managers/applicationCacheManager");
 const { InteractionLabelBuilder, InteractionLabelInfo } = require("../../interactions/base/InteractionLabelBuilder");
 
-const { getAllGames } = require("../../interfaces/databaseInterface.js");
-
 const { APPLICATION_CACHE_KEYS } = require("../../utils/Constants.js");
 
 class SelectGameScreen
 {
+    selectGameScreenOptions
     message;
-
-    allGameDataPromise;
-    allGameData;
 
     gameIdToGameInfoMap;
     selectGameOptionWrappers;
+
+    constructor(selectGameScreenOptions)
+    {
+        this.selectGameScreenOptions = selectGameScreenOptions;
+    }
 
     async getSelectGameScreenDisplay(message)
     {
@@ -23,14 +24,14 @@ class SelectGameScreen
 
         const gameSelectComponent = new MessageActionRow().addComponents(
             new MessageSelectMenu()
-                .setCustomId(InteractionLabelBuilder.getInteractionLabel(new InteractionLabelInfo('SelectGame', [message.id])))
+                .setCustomId(InteractionLabelBuilder.getInteractionLabel(new InteractionLabelInfo(this.selectGameScreenOptions.baseInteractionLabel, [message.id])))
                 .setPlaceholder('Select a Game')
                 .addOptions(this.selectGameOptionWrappers)
         );
 
         const selectGameMessageEmbed = new MessageEmbed();
         selectGameMessageEmbed.setTitle('Select Game');
-        selectGameMessageEmbed.setDescription(`${this.selectGameOptionWrappers.length} games were found. Please select a game in order to generate a match.`);
+        selectGameMessageEmbed.setDescription(`${this.selectGameOptionWrappers.length} games were found. Please select a game in order to continue.`);
 
         return {
             embeds: [selectGameMessageEmbed],
@@ -40,8 +41,6 @@ class SelectGameScreen
 
     async constructScreenFromMessage()
     {
-        await this.retrieveServerGameData();
-
         if (this.noGameReturned())
         {
             this.displayNoAvailableGamesMessage();
@@ -51,17 +50,9 @@ class SelectGameScreen
         this.processGameDataServerResponse();
     }
 
-    async retrieveServerGameData()
-    {
-        let requiredPlayerCount = this.message.mentions.users.size;
-
-        this.allGameDataPromise = getAllGames(requiredPlayerCount);
-        this.allGameData = await this.allGameDataPromise;
-    }
-
     noGameReturned()
     {
-        return (!this.allGameData || this.allGameData.length === 0);
+        return (!this.selectGameScreenOptions.availableGameData || this.selectGameScreenOptions.availableGameData.length === 0);
     }
 
     displayNoAvailableGamesMessage()
@@ -77,10 +68,10 @@ class SelectGameScreen
 
     processGameDataServerResponse()
     {
-        this.gameIdToGameInfoMap = new Map();
+        this.gameIdToGameInfoMap = ApplicationCacheManager.retrieveCacheData(APPLICATION_CACHE_KEYS.ALL_GAME_DATA) || new Map();
         this.selectGameOptionWrappers = [];
 
-        for (let game of this.allGameData)
+        for (let game of this.selectGameScreenOptions.availableGameData)
         {
             let playerCountString = this.getGamePlayerCountDisplayValue(game);
 
@@ -110,4 +101,25 @@ class SelectGameScreen
     }
 }
 
-module.exports = { SelectGameScreen }
+class SelectGameScreenOptions
+{
+    availableGameData;
+    baseInteractionLabel;
+
+    minimumGamesToSelect;
+    maximumGamesToSelect;
+
+    constructor(availableGameData, baseInteractionLabel)
+    {
+        this.availableGameData = availableGameData;
+        this.baseInteractionLabel = baseInteractionLabel;
+
+        this.minimumGamesToSelect = 1;
+        this.maximumGamesToSelect = 1;
+    }
+
+    setMinGameSelectCount(newMinGameCount) { this.minimumGamesToSelect = newMinGameCount; }
+    setMaxGameSelectCount(newMaxGameCount) { this.maximumGamesToSelect = newMaxGameCount; }
+}
+
+module.exports = { SelectGameScreen, SelectGameScreenOptions }

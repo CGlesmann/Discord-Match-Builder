@@ -25,7 +25,7 @@ async function getPlayerStatistics(targetPlayerIds, targetGameIds) {
                 playerStatisticsWrapper = new PlayerStatisticsInfo(playerMatchResult.player_role_rating.player);
             }
 
-            playerStatisticsWrapper.addMatchResult(playerMatchResult);
+            playerStatisticsWrapper.addMatchResult(match);
             discordIdToPlayerStatistics.set(targetDiscordId, playerStatisticsWrapper);
         }
     }

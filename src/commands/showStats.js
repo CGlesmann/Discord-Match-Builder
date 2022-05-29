@@ -1,6 +1,9 @@
 const { BaseCommand } = require("./base/baseCommand.js")
-const { getPlayerStatistics } = require("../modules/playerStatisticsGenerator");
 const { PlayerStatisticsScreen } = require("../ui/screens/PlayerStatisticsScreen.js");
+const { SelectGameScreen, SelectGameScreenOptions } = require("../ui/screens/SelectGameScreen.js");
+
+const { getPlayerStatistics } = require("../modules/playerStatisticsGenerator");
+const { getAllGames } = require("../interfaces/databaseInterface");
 
 class MyStatsCommand extends BaseCommand
 {
@@ -17,20 +20,16 @@ class MyStatsCommand extends BaseCommand
             throw { message: "Please Tag at least 1 User" };
         }
 
-        let targetPlayerIds = Array.from(message.mentions.users, (([userId, userObject]) => userId));
-        let targetGameId = 102001 // Hard Coded to SC2 For now, need to create game selection screen
+        return await this.constructStatisticsGameSelectScreen(message);
+    }
 
-        let discordIdToPlayerStatisticsMap = await getPlayerStatistics(targetPlayerIds, [targetGameId]);
+    async constructStatisticsGameSelectScreen(message)
+    {
+        let targetGameData = await getAllGames();
+        let selectGameScreenOptions = new SelectGameScreenOptions(targetGameData, 'SelectStatisticsGame');
 
-        for(let targetPlayer of targetPlayerIds)
-        {
-            let targetPlayerStatisticsWrapper = discordIdToPlayerStatisticsMap.get(targetPlayer);
-            let statisticsScreen = new PlayerStatisticsScreen(targetPlayerStatisticsWrapper);
-
-            message.channel.send(statisticsScreen.getPlayerStatisticsScreen());
-        }
-        
-        return null;
+        this.selectGameScreenInstance = new SelectGameScreen(selectGameScreenOptions);
+        return await this.selectGameScreenInstance.getSelectGameScreenDisplay(message);
     }
 }
 

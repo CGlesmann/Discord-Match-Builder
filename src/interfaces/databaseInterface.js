@@ -106,7 +106,7 @@ async function getAllApprovedMaps(minimumPlayerCount, targetGameId)
 
 async function getAllGames(requiredPlayerCount)
 {
-    const { data, error } = await supabaseClient.from('game').select(`
+    let gameQuery = supabaseClient.from('game').select(`
         gameId:id, 
         gameName:name, 
         gameDescription:game_description, 
@@ -127,9 +127,15 @@ async function getAllGames(requiredPlayerCount)
                 )
             )
         )
-    `)
-        .gte('maximum_player_count', requiredPlayerCount)
-        .lte('minimum_player_count', requiredPlayerCount)
+    `);
+
+    if (!isNaN(requiredPlayerCount) && Number(requiredPlayerCount) > 0)
+    {
+        gameQuery = gameQuery.gte('maximum_player_count', requiredPlayerCount);
+        gameQuery = gameQuery.lte('minimum_player_count', requiredPlayerCount);
+    }
+        
+    const { data, error } = await gameQuery;
 
     if (error)
     {
@@ -238,7 +244,27 @@ async function postMatchResult(matchResult)
 
 async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
 {
+    let targetPlayerMatchResultsPayload = await supabaseClient.from('player_match_result').select(`
+        match,
+        player_role_rating!inner(
+            game,
+            player!inner(
+                discord_id
+            )
+        )
+    `)
+        .in("player_role_rating.player.discord_id", targetPlayerIds)
+        .in("player_role_rating.game", targetGameIds);
+
+    if (targetPlayerMatchResultsPayload.error)
+    {
+        console.log(error)
+        return null;
+    }
+
+    let targetMatchIds = targetPlayerMatchResultsPayload.data.map((playerMatchResult) => playerMatchResult.match);
     return await supabaseClient.from('match').select(` 
+        id,
         player_match_result!inner(
             id,
             match_result,
@@ -246,7 +272,6 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
             player_role_rating!inner (
                 id,
                 value,
-                is_active,
                 game!inner(id, name),
                 role!inner(name),
                 player!inner(
@@ -257,9 +282,7 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
             )
         )
     `)
-    .in("player_match_result.player_role_rating.player.discord_id", targetPlayerIds)
-    .in("player_match_result.player_role_rating.game", targetGameIds)
-    .eq("player_match_result.player_role_rating.is_active", true);
+    .in("id", targetMatchIds);
 }
 
 module.exports = { getAllTeamBuildingData, getAllApprovedMaps, postMatchResult, getAllGames, getPlayerStatisticsInfo }

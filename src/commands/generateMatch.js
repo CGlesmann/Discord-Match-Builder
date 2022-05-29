@@ -5,11 +5,13 @@ const generateMapModule = require("./generateMap.js");
 const generateTeamModule = require("./generateTeams.js");
 
 const { ApplicationCacheManager } = require('../managers/applicationCacheManager.js');
-const { SelectGameScreen } = require("../ui/screens/SelectGameScreen");
+const { SelectGameScreen, SelectGameScreenOptions } = require("../ui/screens/SelectGameScreen");
 
 const { APPLICATION_CACHE_KEYS } = require("../utils/Constants.js");
 const { MatchGenerationRequest } = require("../classes/applicationCacheWrappers/MatchGenerationRequest.js");
 const { MatchGenerationRequestList } = require("../classes/applicationCacheWrappers/MatchGenerationRequestList.js");
+
+const { getAllGames } = require("../interfaces/databaseInterface");
 
 class GenerateMatchCommand extends BaseCommand
 {
@@ -59,7 +61,10 @@ class GenerateMatchCommand extends BaseCommand
 
     async constructGameSelectScreen(message)
     {
-        this.selectGameScreenInstance = new SelectGameScreen();
+        let targetGameData = await getAllGames(message.mentions.users.size);
+        let selectGameScreenOptions = new SelectGameScreenOptions(targetGameData, 'SelectGame');
+
+        this.selectGameScreenInstance = new SelectGameScreen(selectGameScreenOptions);
         return await this.selectGameScreenInstance.getSelectGameScreenDisplay(message);
     }
 

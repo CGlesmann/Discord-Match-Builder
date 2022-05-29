@@ -62,7 +62,7 @@ class MatchTeamGenerator
 
     initializeConfig()
     {   
-        this.config = { isAIEnabled: false };
+        this.config = { isAIEnabled: true };
     }
 
     toggleIsAIEnabled(isAIEnabled)

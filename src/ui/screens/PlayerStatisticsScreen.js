@@ -9,11 +9,9 @@ class PlayerStatisticsScreen
         this.playerStatistics = playerStatisticsWrapper;
     }
 
-    getPlayerStatisticsScreen()
+    getPlayerStatisticsScreenEmbeds()
     {
-        return {
-            embeds: this.playerStatistics.getStatisticEmbeds()
-        }
+        return this.playerStatistics.getStatisticEmbeds();
     }
 }
 
