@@ -172,7 +172,6 @@ async function postMatchResult(matchResult)
             let playerMatchResultIdFieldKey = playerRoleRatingUpdate.isAIMember ? "ai_difficulty_level" : "player_role_rating";
 
             let newPlayerMatchResultWrapper = { 
-                // player_role_rating: playerRoleRatingUpdate.player_role_rating,
                 match_result: teamResult.result,
                 game_team: playerRoleRatingUpdate.game_team,
                 match: matchInsertResult.data[0].id,
@@ -265,15 +264,17 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
     let targetMatchIds = targetPlayerMatchResultsPayload.data.map((playerMatchResult) => playerMatchResult.match);
     return await supabaseClient.from('match').select(` 
         id,
+        match_time,
         player_match_result!inner(
             id,
             match_result,
             game_team,
+            role_rating_change,
             player_role_rating!inner (
                 id,
                 value,
                 game!inner(id, name),
-                role!inner(name),
+                role!inner(id, name),
                 player!inner(
                     id,
                     name,
@@ -282,7 +283,8 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
             )
         )
     `)
-    .in("id", targetMatchIds);
+    .in("id", targetMatchIds)
+    .order("match_time", {ascending: false});
 }
 
 async function getLeaderboardInfo(targetPlayerIds, targetGameId)

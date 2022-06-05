@@ -13,6 +13,11 @@ class PlayerStatisticsScreen
     {
         return this.playerStatistics.getStatisticEmbeds();
     }
+
+    getPlayerStatisticsScreenGraphs()
+    {
+        return this.playerStatistics.getStatisticGraphImages();
+    }
 }
 
 module.exports = { PlayerStatisticsScreen }

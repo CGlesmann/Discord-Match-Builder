@@ -1,9 +1,35 @@
+require('chartjs-adapter-moment');
+
 const { PlayerRoleStatisticsInfo } = require("./PlayerRoleStatisticsInfo");
+const { ChartJSNodeCanvas } = require("chartjs-node-canvas")
+const { MessageAttachment } = require("discord.js");
+
 const { constructEmbeddedDiscordMessage } = require("../../interfaces/discordInterface");
 const { DATABASE_KEYWORDS } = require("../../utils/Constants");
 
 const PLAYER_NAME_KEY = "playerName";
 const RELATED_STAT_DESCRIPTION_KEY = "statDescription";
+
+const COLORS = ['rgb(61, 52, 139)', 'rgb(30, 32, 25)', 'rgb(247, 184, 1)', 'rgb(132, 220, 198)', 'rgb(243, 66, 19)'];
+const BACKGROUND_RENDERER_PLUGIN = {
+    id: 'BACKGROUND_RENDERER_PLUGIN',
+    beforeDraw: (chart) => {
+      const ctx = chart.canvas.getContext('2d');
+      ctx.save();
+
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = 'white';
+
+      ctx.fillRect(0, 0, chart.width, chart.height);
+      ctx.restore();
+    }
+}
+
+// Rendering & Returning the Graph Image
+const canvas = new ChartJSNodeCanvas({
+    width: 1280,
+    height: 720
+});
 
 class PlayerGameStatisticsInfo
 {
@@ -13,6 +39,8 @@ class PlayerGameStatisticsInfo
     playerRoleRatingIdToRoleStatistics;
     discordIdToRelatedPlayerStatistics;
 
+    roleIdToDatasetWrapper;
+
     constructor(playerInfo, gameInfo)
     {
         this.playerInfo = playerInfo;
@@ -20,6 +48,8 @@ class PlayerGameStatisticsInfo
 
         this.playerRoleRatingIdToRoleStatistics = new Map();
         this.discordIdToRelatedPlayerStatistics = new Map();
+
+        this.roleIdToDatasetWrapper = new Map();
     }
 
     addMatchResult(matchResultWrapper)
@@ -49,6 +79,9 @@ class PlayerGameStatisticsInfo
             targetPlayerRoleRatingStatisticsWrapper
         );
 
+        // Process Role Graph Data
+        this.processRoleChangeGraphData(matchResultWrapper.match_time, currentPlayersMatchResult);
+
         // Process Related Stats
         for(let otherPlayerMatchResult of matchResultWrapper.player_match_result)
         {
@@ -57,6 +90,36 @@ class PlayerGameStatisticsInfo
                 this.calculateRelatedPlayerStatistics(currentPlayersMatchResult, otherPlayerMatchResult);
             }
         }
+    }
+
+    processRoleChangeGraphData(matchDateTime, currentPlayersMatchResult)
+    {
+        let targetRoleId = currentPlayersMatchResult.player_role_rating.role.id;
+        let datasetWrapper = this.roleIdToDatasetWrapper.get(targetRoleId);
+
+        if (!datasetWrapper)
+        {
+            datasetWrapper = {
+                label: `${currentPlayersMatchResult.player_role_rating.role.name} Rating`,
+                runningRoleRating: currentPlayersMatchResult.player_role_rating.value,
+                dateToRoleRating: new Map()
+            }
+        }
+
+        let matchDate = new Date(matchDateTime);
+        let utcDate = new Date(Date.UTC(matchDate.getUTCFullYear(), matchDate.getUTCMonth(), matchDate.getUTCDate()));
+
+        let dateRoleRatings = datasetWrapper.dateToRoleRating.get(utcDate.toISOString()); // All Role Ratings in a day
+
+        if (!dateRoleRatings)
+        {
+            dateRoleRatings = [datasetWrapper.runningRoleRating];
+        }
+
+        datasetWrapper.dateToRoleRating.set(utcDate.toISOString(), dateRoleRatings);
+        datasetWrapper.runningRoleRating += currentPlayersMatchResult.role_rating_change;
+
+        this.roleIdToDatasetWrapper.set(targetRoleId, datasetWrapper);
     }
 
     calculateRelatedPlayerStatistics(currentPlayersMatchResult, relatedPlayersMatchResult)
@@ -163,6 +226,63 @@ class PlayerGameStatisticsInfo
 
         baseEmbed.addFields(roleStatisticsFields);
         return baseEmbed;
+    }
+
+    getGameRoleRatingChangeGraph()
+    {  
+        // Creating Dataset Wrappers
+        let datasetWrapperArray = Array.from(this.roleIdToDatasetWrapper.values());
+        let datasets = [];
+
+        let colorIndex = 0;
+        for(let datasetWrapper of datasetWrapperArray)
+        {
+            let newDataSet = {
+                label: datasetWrapper.label,
+                data: [],
+                fill: false,
+                borderColor: COLORS[colorIndex++],
+                tension: 0.1
+            };
+
+            for(let [date, dateRoleRatings] of datasetWrapper.dateToRoleRating)
+            {
+                newDataSet.data.push({
+                    x: date,
+                    y: Math.max(...dateRoleRatings)
+                });
+            }
+
+            datasets.push(newDataSet);
+        }
+
+        // Configuring the Graph
+        const roleRatingChangeGraphConfig = {
+            type: 'line',
+            data: {
+                datasets: datasets
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `${this.playerInfo[PLAYER_NAME_KEY]}'s ${this.gameInfo.gameName} Role Ratings`
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'week'
+                        }
+                    }
+                }
+            },
+            plugins: [BACKGROUND_RENDERER_PLUGIN]
+        };
+
+        const roleRatingChangeGraphImageBuffer = canvas.renderToBufferSync(roleRatingChangeGraphConfig);
+        return new MessageAttachment(roleRatingChangeGraphImageBuffer);
     }
 
     constructRelatedPlayerStatsField()

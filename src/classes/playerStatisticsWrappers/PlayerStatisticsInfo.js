@@ -39,6 +39,18 @@ class PlayerStatisticsInfo
 
         return statisticEmbeds;
     }
+
+    getStatisticGraphImages()
+    {
+        let graphFiles = [];
+
+        for(let gameStatisticsWrapper of this.gameIdToGameStatistics.values())
+        {
+            graphFiles.push(gameStatisticsWrapper.getGameRoleRatingChangeGraph());
+        }
+
+        return graphFiles;
+    }
 }
 
 module.exports = { PlayerStatisticsInfo };

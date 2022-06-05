@@ -16,6 +16,7 @@ class SelectStatisticsGameInteraction extends BaseInteraction
 
         let discordIdToPlayerStatisticsMap = await getPlayerStatistics(targetPlayerIds, [targetGameId]);
         let playerStatisticScreenEmbeds = [];
+        let playerStatisticsScreenGraphs = [];
 
         if (!discordIdToPlayerStatisticsMap || !discordIdToPlayerStatisticsMap.size)
         {
@@ -43,9 +44,10 @@ class SelectStatisticsGameInteraction extends BaseInteraction
 
             let statisticsScreen = new PlayerStatisticsScreen(targetPlayerStatisticsWrapper);
             playerStatisticScreenEmbeds.push(...statisticsScreen.getPlayerStatisticsScreenEmbeds());
+            playerStatisticsScreenGraphs.push(...statisticsScreen.getPlayerStatisticsScreenGraphs());
         }
 
-        interactionObject.update({embeds: playerStatisticScreenEmbeds});
+        interactionObject.update({embeds: playerStatisticScreenEmbeds, files: playerStatisticsScreenGraphs});
         return;
     }
 }
