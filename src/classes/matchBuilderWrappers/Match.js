@@ -69,7 +69,7 @@ class Match
         let moveTeamMemberPromises = [];
         this.teams.forEach((team) =>
         {
-            moveTeamMemberPromises.push(team.moveTeamMembersToOrigionalChannels());
+            moveTeamMemberPromises.push(team.moveTeamMembersToOriginalChannels());
         });
         await Promise.all(moveTeamMemberPromises);
 
