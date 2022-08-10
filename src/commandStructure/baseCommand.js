@@ -30,7 +30,7 @@ class BaseCommand
             [
                 {
                     title: `${COMMAND_PREFIX}${this.COMMAND_NAME}`,
-                    desciption: Object.keys(this.COMMAND_ARGS).map((commandKey) => { return `${commandKey} - ${this.COMMAND_ARGS[commandKey].helpText}` }).join()
+                    description: Object.keys(this.COMMAND_ARGS).map((commandKey) => { return `${commandKey} - ${this.COMMAND_ARGS[commandKey].helpText}` }).join()
                 }
             ]
         );
