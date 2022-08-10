@@ -96,7 +96,7 @@ class Team
         }
     }
 
-    async moveTeamMembersToOrigionalChannels()
+    async moveTeamMembersToOriginalChannels()
     {
         let allTeamMemberMovePromises = [];
         this.teamMembers.forEach(teamMember =>
