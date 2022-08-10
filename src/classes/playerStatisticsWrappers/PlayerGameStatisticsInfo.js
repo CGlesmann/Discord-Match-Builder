@@ -74,13 +74,6 @@ class PlayerGameStatisticsInfo
         }
 
         targetPlayerRoleRatingStatisticsWrapper.addMatchResult(currentPlayersMatchResult);
-        this.playerRoleRatingIdToRoleStatistics.set(
-            targetPlayerRoleRatingId, 
-            targetPlayerRoleRatingStatisticsWrapper
-        );
-
-        // Process Role Graph Data
-        this.processRoleChangeGraphData(matchResultWrapper.match_time, currentPlayersMatchResult);
 
         // Process Related Stats
         for(let otherPlayerMatchResult of matchResultWrapper.player_match_result)
@@ -90,6 +83,14 @@ class PlayerGameStatisticsInfo
                 this.calculateRelatedPlayerStatistics(currentPlayersMatchResult, otherPlayerMatchResult);
             }
         }
+
+        this.playerRoleRatingIdToRoleStatistics.set(
+            targetPlayerRoleRatingId, 
+            targetPlayerRoleRatingStatisticsWrapper
+        );
+
+        // Process Role Graph Data
+        this.processRoleChangeGraphData(matchResultWrapper.match_time, currentPlayersMatchResult);
     }
 
     processRoleChangeGraphData(matchDateTime, currentPlayersMatchResult)

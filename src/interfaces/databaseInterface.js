@@ -245,7 +245,7 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
 {
     let targetPlayerMatchResultsPayload = await supabaseClient.from('player_match_result').select(`
         match,
-        player_role_rating!inner(
+        player_role_rating!player_match_result_player_role_rating_fkey!inner(
             game,
             player!inner(
                 discord_id
@@ -257,7 +257,7 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
 
     if (targetPlayerMatchResultsPayload.error)
     {
-        console.log(error)
+        console.log(targetPlayerMatchResultsPayload.error)
         return null;
     }
 
@@ -265,12 +265,16 @@ async function getPlayerStatisticsInfo(targetPlayerIds, targetGameIds)
     return await supabaseClient.from('match').select(` 
         id,
         match_time,
+        game_map (
+            id,
+            name
+        ),
         player_match_result!inner(
             id,
             match_result,
             game_team,
             role_rating_change,
-            player_role_rating!inner (
+            player_role_rating!player_match_result_player_role_rating_fkey!inner (
                 id,
                 value,
                 game!inner(id, name),

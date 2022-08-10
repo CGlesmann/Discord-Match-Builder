@@ -15,39 +15,52 @@ class SelectStatisticsGameInteraction extends BaseInteraction
         let targetPlayerIds = Array.from(targetMessage.mentions.users, (([userId, userObject]) => userId));
 
         let discordIdToPlayerStatisticsMap = await getPlayerStatistics(targetPlayerIds, [targetGameId]);
-        let playerStatisticScreenEmbeds = [];
-        let playerStatisticsScreenGraphs = [];
-
         if (!discordIdToPlayerStatisticsMap || !discordIdToPlayerStatisticsMap.size)
         {
-            playerStatisticScreenEmbeds.push(constructEmbeddedDiscordMessage([{
+            interactionObject.update({embeds: constructEmbeddedDiscordMessage([{
                 title: "No Statistics Data Available",
-                description: "This player has no statistics data available for the selected game"
-            }])[0]);
+                description: "None of the selected player(s) have statistics data available for the selected game"
+            }])});
 
-            interactionObject.update({embeds: playerStatisticScreenEmbeds});
             return;
         }
 
         for(let targetPlayer of targetPlayerIds)
         {
+            let playerStatisticsMessage = { embeds: [], files: [] };
             let targetPlayerStatisticsWrapper = discordIdToPlayerStatisticsMap.get(targetPlayer);
+
             if (!targetPlayerStatisticsWrapper)
             {
-                playerStatisticScreenEmbeds.push(constructEmbeddedDiscordMessage([{
-                    title: "No Statistics Data Available",
+                playerStatisticsMessage.embeds.push(constructEmbeddedDiscordMessage([{
+                    title: "No Player Statistics Data Available",
                     description: "This player has no statistics data available for the selected game"
                 }])[0]);
-
-                continue;
+            }
+            else
+            {
+                let statisticsScreen = new PlayerStatisticsScreen(targetPlayerStatisticsWrapper);
+                playerStatisticsMessage.embeds.push(...statisticsScreen.getPlayerStatisticsScreenEmbeds());
+                playerStatisticsMessage.files.push(...statisticsScreen.getPlayerStatisticsScreenGraphs());
             }
 
-            let statisticsScreen = new PlayerStatisticsScreen(targetPlayerStatisticsWrapper);
-            playerStatisticScreenEmbeds.push(...statisticsScreen.getPlayerStatisticsScreenEmbeds());
-            playerStatisticsScreenGraphs.push(...statisticsScreen.getPlayerStatisticsScreenGraphs());
+            let newThread = await interactionObject.channel.threads.create({
+                name: 'Statistics Thread',
+                autoArchiveDuration: 60,
+                reason: 'Statistics'
+            });
+
+            newThread.send(playerStatisticsMessage);
         }
 
-        interactionObject.update({embeds: playerStatisticScreenEmbeds, files: playerStatisticsScreenGraphs});
+        interactionObject.update({
+            embeds: constructEmbeddedDiscordMessage([{
+                title: "Statistics Generated",
+                description: "The statistics for the selected players/games have been generated and can be located in the generated threads"
+            }]), 
+            components: []
+        });
+
         return;
     }
 }

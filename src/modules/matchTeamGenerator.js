@@ -54,7 +54,10 @@ class MatchTeamGenerator
         let match = this.constructMatchWrapper(targetGameData);
         let selectedTeams = this.constructMatchTeams(match, availableTeamMembers, viableTeamPermutations);
 
-        this.executeMatchBalance(selectedTeams, teamBuildingData.availableAIData);
+        while (!this.executeMatchBalance(selectedTeams, teamBuildingData.availableAIData)) {
+            selectedTeams = this.constructMatchTeams(match, availableTeamMembers, viableTeamPermutations);
+        }
+
         return match;
     }
 
@@ -123,11 +126,11 @@ class MatchTeamGenerator
             let valDiff = this.calculateTeamAverageScoreDifference(permutation, averagePlayerScore);
             let pass = (valDiff <= 1000);
 
-            if (pass) {
+            if (true) {
                 console.log(`Team Combo ${permutation.map((player) => player.name).join("-")} passed filtering (${valDiff})`);
             }
 
-            return pass;
+            return true;
         });
 
         if (!filteredTeamPermutations.length)
@@ -293,7 +296,7 @@ class MatchTeamGenerator
             if (!targetBalanceFunction) 
             {
                 console.log("Couldn't find balance function", sortedBalanceFunctions, targetBalanceFunctionIndex); 
-                continue; 
+                return false; 
             }
 
             try
@@ -317,12 +320,15 @@ class MatchTeamGenerator
             catch(e)
             {
                 console.log(e);
+                return false;
             }
 
             // Increase accuracy by 1% every loop
             accuracyCounter = (accuracyCounter + 0.01).clamp(0, 1);
             console.log(); 
         }
+
+        return true;
     }
 
     isMatchInBalanceThreshold(selectedTeams, balanceThreshold)
