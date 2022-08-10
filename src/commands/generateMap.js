@@ -1,7 +1,8 @@
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
-const { GameMap } = require("../modules/matchBuilderClasses.js");
-const { constructEmbeddedDiscordMessage } = require("../modules/discordPrinter.js");
-const { getAllApprovedMaps } = require("../modules/salesforceDataReader.js");
+const { BaseCommand } = require("./base/baseCommand.js");
+const { GameMap } = require("../classes/matchBuilderWrappers/GameMap");
+
+const { constructEmbeddedDiscordMessage } = require("../interfaces/discordInterface.js");
+const { getAllApprovedMaps } = require("../interfaces/databaseInterface.js");
 
 class GenerateMapCommand extends BaseCommand
 {
@@ -14,6 +15,7 @@ class GenerateMapCommand extends BaseCommand
             c: {
                 helpText: "The amount of players the map needs to accommodate",
                 validateErrorText: "Enter a whole number greater than 0",
+                isRequired: true,
                 validate: function (agrumentStringValue)
                 {
                     let numericValue = Number(agrumentStringValue);
@@ -23,7 +25,7 @@ class GenerateMapCommand extends BaseCommand
         }
     }
 
-    async run(receivedCommandArgs, message, applicationCache)
+    async run(receivedCommandArgs, message)
     {
         let commandKeys = Object.keys(this.COMMAND_ARGS);
 

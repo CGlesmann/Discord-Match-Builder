@@ -1,18 +1,13 @@
+require("./utils/extensions");
 require("dotenv").config();
 
-const NodeCache = require("node-cache");
 const { Client, Intents } = require("discord.js");
 
-const { checkUserMessageForCommand } = require("./modules/commandParser.js");
-const { processInteraction } = require("./modules/interactionProcessor.js");
+const { processTextMessage } = require("./managers/commandManager.js");
+const { processInteraction } = require("./managers/interactionManager.js");
 
 async function configureAndLaunchBot()
 {
-    /*
-        stdTTL: 0 (Infinity)
-        useClones: everything will be retrieved by reference
-    */
-    const applicationCache = new NodeCache({ stdTTL: 0, useClones: false });
     const botClient = new Client({
         intents: [
             Intents.FLAGS.GUILDS,
@@ -27,20 +22,12 @@ async function configureAndLaunchBot()
     {
         if (message.author.bot) return;
 
-        checkUserMessageForCommand(message, applicationCache);
+        processTextMessage(message);
     });
 
     botClient.on("interactionCreate", async (interaction) =>
     {
-        try
-        {
-            processInteraction(interaction, applicationCache);
-        }
-        catch (e)
-        {
-            console.log(`Error while processing interaction ${interaction.customId}`);
-            console.log(e);
-        }
+        processInteraction(interaction);
     });
 
     botClient.login(process.env.DISCORDJS_BOT_TOKEN);

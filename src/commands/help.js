@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 
-const { BaseCommand } = require("../commandStructure/baseCommand.js");
+const { BaseCommand } = require("./base/baseCommand.js");
 const { COMMAND_CLASS_KEY } = require("../modules/commandParser.js");
 
 class HelpCommand extends BaseCommand
